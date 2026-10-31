@@ -6,6 +6,16 @@ __pycache__/
 # Virtual environment
 venv/
 .venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+staticfiles/
+media/
+db.sqlite3
+.env
+__pycache__/
+*.pyc
 env/
 
 # Django

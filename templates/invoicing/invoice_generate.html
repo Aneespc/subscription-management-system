@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Subscription Invoice | Brightloop Billing{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <a href="{% url 'invoicing:invoice_list' %}" class="text-decoration-none text-muted small">
+          <i class="bi bi-arrow-left me-1"></i>Back to Invoices
+        </a>
+        <h1 class="h3 fw-bold mt-1 mb-0">Generate Manual Invoice</h1>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <div class="alert alert-info py-2 small mb-4">
+          <i class="bi bi-info-circle me-1"></i>
+          Select an active subscription and specify the billing period. The billing engine will automatically snapshot line items, calculate eligible discounts, apply taxes, and verify idempotency.
+        </div>
+
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+              {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Subscription <span class="text-danger">*</span></label>
+            {{ form.subscription }}
+            {% if form.subscription.errors %}
+              <div class="text-danger small mt-1">{{ form.subscription.errors|join:", " }}</div>
+            {% endif %}
+            <div class="form-text small">{{ form.subscription.help_text }}</div>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Billing Period Start <span class="text-danger">*</span></label>
+              {{ form.billing_period_start }}
+              {% if form.billing_period_start.errors %}
+                <div class="text-danger small mt-1">{{ form.billing_period_start.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Billing Period End <span class="text-danger">*</span></label>
+              {{ form.billing_period_end }}
+              {% if form.billing_period_end.errors %}
+                <div class="text-danger small mt-1">{{ form.billing_period_end.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+            <a href="{% url 'invoicing:invoice_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="bi bi-lightning-charge me-1"></i>Generate Invoice
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
