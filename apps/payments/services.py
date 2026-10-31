@@ -6,7 +6,9 @@ from django.db.models import DecimalField, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from .models import Invoice, Payment  # later: from apps.invoicing.models import Invoice
+from apps.invoicing.models import Invoice
+
+from .models import Payment
 
 ZERO = Decimal("0.00")
 MONEY = DecimalField(max_digits=14, decimal_places=2)
@@ -14,6 +16,13 @@ MONEY = DecimalField(max_digits=14, decimal_places=2)
 
 class PaymentError(ValueError):
     """Raised when a payment breaks a business rule."""
+
+
+def _mark_invoice_paid(invoice, payment):
+    # Imported here to avoid circular imports between the invoicing and payments apps
+    from apps.invoicing.services import InvoiceService
+
+    InvoiceService.mark_paid(invoice=invoice, payment=payment)
 
 
 def calculate_outstanding(invoice):
@@ -57,9 +66,9 @@ def record_payment(invoice, amount, method, recorded_by,
         payment.payment_number = f"PAY-{payment.payment_date.year}-{payment.pk:05d}"
         payment.save(update_fields=["payment_number"])
 
+        # Only a fully paid invoice moves to PAID, and Member 3's service owns that transition
         if calculate_outstanding(invoice) == 0:
-            invoice.status = Invoice.Status.PAID
-            invoice.save(update_fields=["status"])
+            _mark_invoice_paid(invoice, payment)
 
     return payment
 
@@ -97,8 +106,8 @@ def reconcile_payment(payment):
         if outstanding < 0:
             issues.append("Overpaid: payments exceed the invoice total.")
         if outstanding <= 0 and invoice.status == Invoice.Status.CONFIRMED:
-            invoice.status = Invoice.Status.PAID
-            invoice.save(update_fields=["status"])
+            _mark_invoice_paid(invoice, payment)
+            invoice.refresh_from_db()
         elif outstanding > 0 and invoice.status == Invoice.Status.PAID:
             issues.append("Invoice is PAID but still has an outstanding balance.")
 

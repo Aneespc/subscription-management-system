@@ -137,6 +137,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+}
 # Custom configs
 AUTH_USER_MODEL = 'accounts.User'
 

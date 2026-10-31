@@ -7,26 +7,42 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.payments.models import Invoice, Payment
+from apps.accounts.models import CustomerProfile
+from apps.invoicing.models import Invoice
+from apps.payments.models import Payment
 
 METHODS = [value for value, _ in Payment.PaymentMethod.choices]
 CENT = Decimal("0.01")
+User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = "Create demo invoices and payments (re-running replaces earlier SEED- data)."
+    help = "Create demo customers, invoices and payments (re-running replaces earlier SEED data)."
 
     def add_arguments(self, parser):
         parser.add_argument("--invoices", type=int, default=5000)
+        parser.add_argument("--customers", type=int, default=50)
 
     @transaction.atomic
     def handle(self, *args, **opts):
-        user = get_user_model().objects.filter(is_superuser=True).first()
-        if not user:
+        admin = User.objects.filter(is_superuser=True).first()
+        if not admin:
             raise CommandError("Create a superuser first: python manage.py createsuperuser")
 
+        # Delete in dependency order: payments, invoices, then demo users (cascades to profiles)
         Payment.objects.filter(payment_number__startswith="SEED-").delete()
         Invoice.objects.filter(invoice_number__startswith="SEED-").delete()
+        User.objects.filter(username__startswith="seed_cust_").delete()
+
+        customers = []
+        for i in range(1, opts["customers"] + 1):
+            user = User.objects.create_user(
+                username=f"seed_cust_{i}", email=f"seed_cust_{i}@example.com",
+                password="Passw0rd!x", role="CUSTOMER",
+            )
+            customers.append(CustomerProfile.objects.create(
+                user=user, company_name=f"Demo Company {i}", phone="0000000000", address="Demo address",
+            ))
 
         today = timezone.localdate()
         now = timezone.now()
@@ -35,15 +51,19 @@ class Command(BaseCommand):
             weights=[50, 40, 5, 5], k=opts["invoices"],
         )
 
-        invoices = [
-            Invoice(
+        invoices = []
+        for i, status in enumerate(statuses, start=1):
+            due = today + timedelta(days=random.randint(-180, 30))
+            invoices.append(Invoice(
                 invoice_number=f"SEED-INV-{i:06d}",
+                customer=random.choice(customers),
                 total_amount=Decimal(random.randint(100, 5000)),
                 status=status,
-                due_date=today + timedelta(days=random.randint(-180, 30)),
-            )
-            for i, status in enumerate(statuses, start=1)
-        ]
+                issue_date=due - timedelta(days=14),
+                due_date=due,
+                billing_period_start=due - timedelta(days=44),
+                billing_period_end=due - timedelta(days=14),
+            ))
         Invoice.objects.bulk_create(invoices, batch_size=500)
         saved = Invoice.objects.filter(invoice_number__startswith="SEED-")
 
@@ -59,7 +79,7 @@ class Command(BaseCommand):
                 payment_method=random.choice(METHODS),
                 payment_date=now - timedelta(days=random.randint(0, 180), seconds=random.randint(0, 86399)),
                 transaction_reference=f"REF{random.randint(100000, 999999)}",
-                recorded_by=user,
+                recorded_by=admin,
             ))
 
         for inv in saved:
@@ -76,5 +96,5 @@ class Command(BaseCommand):
 
         Payment.objects.bulk_create(payments, batch_size=500)
         self.stdout.write(self.style.SUCCESS(
-            f"Created {len(invoices)} invoices and {len(payments)} payments."
+            f"Created {len(customers)} customers, {len(invoices)} invoices and {len(payments)} payments."
         ))
