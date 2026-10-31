@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-brightloop}
+      POSTGRES_USER: ${POSTGRES_USER:-brightloop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brightloop}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brightloop} -d ${POSTGRES_DB:-brightloop}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-brightloop}:${POSTGRES_PASSWORD:-brightloop}@db:5432/${POSTGRES_DB:-brightloop}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-production}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+      ADMIN_USER: ${ADMIN_USER:?Set ADMIN_USER to the admin email}
+      ADMIN_PASS: ${ADMIN_PASS:?Set ADMIN_PASS to the admin password}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      DJANGO_EMAIL_BACKEND: ${DJANGO_EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-billing@brightloopsoftware.com}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

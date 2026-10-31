@@ -38,6 +38,31 @@ Password reset and invoice emails print to the console in development. Set `DJAN
 
 **The finance lead, at the end of the month.** The dashboard shows active subscriptions, revenue received, what is still owed, overdue invoices and payments, filtered by date range, payment method and customer. List pages use annotated queries, indexes and pagination and stay well under two seconds with thousands of subscriptions.
 
+## Run with Docker (PostgreSQL)
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Open http://localhost:8000/ and sign in with the `ADMIN_USER` email and `ADMIN_PASS` password from `.env`. The web container waits for PostgreSQL, applies migrations, creates or updates the admin account from those two variables, and then serves the app with gunicorn. Static files are served by WhiteNoise. Set `SEED_DEMO=true` in `.env` to load the demo data on first start.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `ADMIN_USER` | yes | Email of the admin account created on start |
+| `ADMIN_PASS` | yes | Its password, which must follow the password rule |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | no | Database name and credentials, default `brightloop` |
+| `DJANGO_SECRET_KEY` | production | Secret key |
+| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | production | Comma-separated host names and origins |
+| `WEB_PORT` | no | Host port, default 8000 |
+| `SEED_DEMO` | no | `true` to seed demo data |
+
+Run the billing job inside the container on a schedule:
+
+```bash
+docker compose exec web python manage.py generate_invoices
+```
+
 ## Project layout
 
 ```
@@ -70,7 +95,9 @@ python manage.py generate_invoices [--date YYYY-MM-DD] [--dry-run] # scheduled b
 | `DJANGO_SECRET_KEY` | insecure dev key | Secret key |
 | `DJANGO_DEBUG` | `True` | Debug mode |
 | `DJANGO_ALLOWED_HOSTS` | `*` | Comma-separated hosts |
-| `DATABASE_URL` | SQLite file | Any `dj-database-url` URL, for example PostgreSQL |
+| `DATABASE_URL` | SQLite file | Any `dj-database-url` URL; Compose sets a PostgreSQL URL |
+| `ADMIN_USER`, `ADMIN_PASS` | | Admin account created by `python manage.py ensure_admin` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | | Comma-separated origins when served behind a domain |
 | `DJANGO_EMAIL_BACKEND` | console | Email backend for invoices and password resets |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` | | SMTP settings |
 | `DEFAULT_FROM_EMAIL` | `billing@brightloopsoftware.com` | Sender address |
