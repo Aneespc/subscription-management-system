@@ -68,15 +68,16 @@ def get_summary(params):
     billed = Invoice.objects.filter(status=Invoice.Status.CONFIRMED).aggregate(t=_sum("total_amount"))["t"]
     paid_on_open = Payment.objects.filter(invoice__status=Invoice.Status.CONFIRMED).aggregate(t=_sum("amount"))["t"]
 
-    overdue = list(get_overdue_invoices())
+    # One query for both the count and the amount
+    overdue = get_overdue_invoices().aggregate(count=Count("id"), amount=_sum("outstanding"))
 
     return {
         "revenue_received": revenue["total"],
         "payments_count": revenue["count"],
         "outstanding_amount": billed - paid_on_open,
         "total_invoices": Invoice.objects.count(),
-        "overdue_invoices": len(overdue),
-        "overdue_amount": sum((i.outstanding for i in overdue), ZERO),
+        "overdue_invoices": overdue["count"],
+        "overdue_amount": overdue["amount"],
         # Placeholders until Member 2's models land:
         "total_customers": None,
         "active_subscriptions": None,

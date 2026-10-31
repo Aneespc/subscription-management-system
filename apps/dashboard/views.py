@@ -1,4 +1,6 @@
+from django.contrib.admin.views.decorators import staff_member_required
 from django.core.cache import cache
+from django.shortcuts import render
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +12,12 @@ from apps.payments.services import get_overdue_invoices
 from . import services
 
 CACHE_SECONDS = 30
+
+
+@staff_member_required
+def dashboard_page(request):
+    """The HTML dashboard. Redirects to the admin login if not logged in as staff."""
+    return render(request, "dashboard/index.html")
 
 
 class CachedDashboardView(APIView):

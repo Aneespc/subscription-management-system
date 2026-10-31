@@ -1,15 +1,15 @@
-from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
 from django.db import transaction
-from django.db.models import DecimalField, F, Sum, Value
+from django.db.models import DecimalField, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from .models import Invoice, Payment  # later: from apps.invoicing.models import Invoice
 
 ZERO = Decimal("0.00")
+MONEY = DecimalField(max_digits=14, decimal_places=2)
 
 
 class PaymentError(ValueError):
@@ -18,7 +18,7 @@ class PaymentError(ValueError):
 
 def calculate_outstanding(invoice):
     paid = invoice.payments.aggregate(
-        total=Coalesce(Sum("amount"), Value(ZERO), output_field=DecimalField())
+        total=Coalesce(Sum("amount"), Value(ZERO), output_field=MONEY)
     )["total"]
     return invoice.total_amount - paid
 
@@ -65,9 +65,23 @@ def record_payment(invoice, amount, method, recorded_by,
 
 
 def get_overdue_invoices():
+    """CONFIRMED invoices past their due date with a balance left.
+
+    Uses a subquery instead of a join, so the result can be counted and
+    summed in a single query (the dashboard relies on this).
+    """
+    paid = (
+        Payment.objects.filter(invoice=OuterRef("pk"))
+        .order_by()
+        .values("invoice")
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
     return (
-        Invoice.objects.filter(status=Invoice.Status.CONFIRMED, due_date__lt=date.today())
-        .annotate(paid=Coalesce(Sum("payments__amount"), Value(ZERO), output_field=DecimalField()))
+        Invoice.objects.filter(
+            status=Invoice.Status.CONFIRMED, due_date__lt=timezone.localdate()
+        )
+        .annotate(paid=Coalesce(Subquery(paid, output_field=MONEY), Value(ZERO), output_field=MONEY))
         .annotate(outstanding=F("total_amount") - F("paid"))
         .filter(outstanding__gt=0)
     )
