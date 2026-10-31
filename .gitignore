@@ -1,3 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
 .venv/
 __pycache__/
 *.py[cod]
@@ -5,3 +12,43 @@ __pycache__/
 *.sqlite3
 staticfiles/
 media/
+db.sqlite3
+.env
+__pycache__/
+*.pyc
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Static files
+staticfiles/
+
+# Migrations - keep these!
+# Do not ignore migrations/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
