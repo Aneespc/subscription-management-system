@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
 from django.db import models
+
+phone_validator = RegexValidator(r"^\+?[0-9 ()-]{6,30}$", "Enter a valid phone number using digits, spaces, +, - or ().")
 
 
 class User(AbstractUser):
@@ -62,7 +65,7 @@ class CustomerProfile(models.Model):
         related_name="customer_profile",
     )
     company_name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=30, blank=True)
+    phone = models.CharField(max_length=30, blank=True, validators=[phone_validator])
     address = models.TextField(blank=True)
     tax_number = models.CharField(max_length=50, blank=True)
     billing_email = models.EmailField(blank=True)

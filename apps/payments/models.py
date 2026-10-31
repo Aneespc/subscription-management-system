@@ -1,5 +1,9 @@
+from decimal import Decimal
+
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -14,7 +18,7 @@ class Payment(models.Model):
 
     payment_number = models.CharField(max_length=50, unique=True, blank=True)
     invoice = models.ForeignKey("invoicing.Invoice", on_delete=models.PROTECT, related_name="payments")
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.BANK_TRANSFER)
     payment_date = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
@@ -29,6 +33,7 @@ class Payment(models.Model):
             models.Index(fields=["payment_date"]),
             models.Index(fields=["payment_method"]),
         ]
+        constraints = [models.CheckConstraint(condition=Q(amount__gt=0), name="payment_amount_gt_zero")]
 
     def __str__(self):
         return self.payment_number

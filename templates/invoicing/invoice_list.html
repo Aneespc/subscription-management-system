@@ -21,7 +21,7 @@
     <div class="col-md-2"><label class="form-label">Status</label>{{ filter_form.status }}</div>
     {% if is_staff_user %}<div class="col-md-2"><label class="form-label">Customer</label>{{ filter_form.customer }}</div>{% endif %}
     <div class="col-md-2"><label class="form-label">From</label>{{ filter_form.date_from }}</div>
-    <div class="col-md-2"><label class="form-label">To</label>{{ filter_form.date_to }}</div>
+    <div class="col-md-2"><label class="form-label">To</label>{{ filter_form.date_to }}{% if filter_form.date_to.errors %}<div class="text-danger small mt-1">{{ filter_form.date_to.errors.0 }}</div>{% endif %}</div>
     <div class="col-md-1 d-flex gap-2"><button class="btn btn-dark w-100" type="submit">Go</button></div>
     <div class="col-12 d-flex justify-content-between align-items-center">
       <div class="form-check">{{ filter_form.overdue_only }}<label class="form-check-label text-danger fw-semibold" for="{{ filter_form.overdue_only.id_for_label }}">Overdue only</label></div>

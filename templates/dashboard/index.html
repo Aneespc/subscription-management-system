@@ -11,7 +11,7 @@
 <div class="card mb-4"><div class="card-body py-3">
   <form method="get" class="row g-2 align-items-end">
     <div class="col-md-2"><label class="form-label">From</label>{{ filter_form.date_from }}</div>
-    <div class="col-md-2"><label class="form-label">To</label>{{ filter_form.date_to }}</div>
+    <div class="col-md-2"><label class="form-label">To</label>{{ filter_form.date_to }}{% if filter_form.date_to.errors %}<div class="text-danger small mt-1">{{ filter_form.date_to.errors.0 }}</div>{% endif %}</div>
     <div class="col-md-3"><label class="form-label">Payment method</label>{{ filter_form.method }}</div>
     <div class="col-md-3"><label class="form-label">Customer</label>{{ filter_form.customer }}</div>
     <div class="col-md-2 d-flex gap-2"><button class="btn btn-dark w-100" type="submit">Apply</button>{% if has_filters %}<a href="{% url 'dashboard:index' %}" class="btn btn-light">Reset</a>{% endif %}</div>

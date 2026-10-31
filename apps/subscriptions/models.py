@@ -1,6 +1,9 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -54,6 +57,11 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f"{self.subscription_number} - {self.customer.company_name}"
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.expiry_date and self.expiry_date < self.start_date:
+            raise ValidationError({"expiry_date": "Expiry date must be on or after the start date."})
 
     def save(self, *args, **kwargs):
         if not self.next_billing_date and self.status == self.Status.ACTIVE and self.plan_id:
@@ -124,13 +132,17 @@ class SubscriptionLine(models.Model):
     variant = models.ForeignKey(
         "products.ProductVariant", on_delete=models.SET_NULL, null=True, blank=True
     )
-    quantity = models.PositiveIntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
-    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"))
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00")), MaxValueValidator(Decimal("100.00"))])
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gte=1), name="subscription_line_quantity_gte_one"),
+            models.CheckConstraint(condition=Q(unit_price__gte=0), name="subscription_line_unit_price_gte_zero"),
+        ]
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"

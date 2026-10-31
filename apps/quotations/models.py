@@ -2,14 +2,17 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 
 class QuotationTemplate(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    validity_days = models.PositiveIntegerField(default=30)
+    validity_days = models.PositiveIntegerField(default=30, validators=[MinValueValidator(1), MaxValueValidator(365)])
     plan = models.ForeignKey("plans.Plan", on_delete=models.CASCADE, related_name="quotation_templates")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_templates"
@@ -23,15 +26,21 @@ class QuotationTemplate(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        super().clean()
+        if self.name and QuotationTemplate.objects.filter(name__iexact=self.name.strip()).exclude(pk=self.pk).exists():
+            raise ValidationError({"name": "A template with this name already exists."})
+
 
 class QuotationTemplateLine(models.Model):
     template = models.ForeignKey(QuotationTemplate, on_delete=models.CASCADE, related_name="template_lines")
     product = models.ForeignKey("products.Product", on_delete=models.CASCADE)
     variant = models.ForeignKey("products.ProductVariant", on_delete=models.SET_NULL, null=True, blank=True)
-    quantity = models.PositiveIntegerField(default=1)
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
     class Meta:
         ordering = ["id"]
+        constraints = [models.CheckConstraint(condition=Q(quantity__gte=1), name="template_line_quantity_gte_one")]
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
@@ -87,6 +96,11 @@ class Quotation(models.Model):
     def __str__(self):
         return f"{self.quotation_number} - {self.customer.company_name}"
 
+    def clean(self):
+        super().clean()
+        if self.issue_date and self.expiry_date and self.expiry_date < self.issue_date:
+            raise ValidationError({"expiry_date": "Expiry date must be on or after the issue date."})
+
     def save(self, *args, **kwargs):
         if not self.expiry_date:
             validity = self.template.validity_days if self.template else 30
@@ -133,13 +147,17 @@ class QuotationLine(models.Model):
     quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name="lines")
     product = models.ForeignKey("products.Product", on_delete=models.PROTECT)
     variant = models.ForeignKey("products.ProductVariant", on_delete=models.SET_NULL, null=True, blank=True)
-    quantity = models.PositiveIntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
-    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"))
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00")), MaxValueValidator(Decimal("100.00"))])
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gte=1), name="quotation_line_quantity_gte_one"),
+            models.CheckConstraint(condition=Q(unit_price__gte=0), name="quotation_line_unit_price_gte_zero"),
+        ]
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"

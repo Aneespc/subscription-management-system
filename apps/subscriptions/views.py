@@ -135,6 +135,10 @@ class SubscriptionFormView(StaffRequiredMixin, View):
         form = SubscriptionForm(request.POST, instance=subscription)
         formset = SubscriptionLineFormSet(request.POST, instance=subscription)
         if form.is_valid() and formset.is_valid():
+            plan = form.cleaned_data["plan"]
+            if form.cleaned_data["status"] == Subscription.Status.ACTIVE and formset.total_quantity() < plan.minimum_quantity:
+                form.add_error("status", f"{plan.name} needs at least {plan.minimum_quantity} unit(s) before it can be active. Lines total {formset.total_quantity()}.")
+                return self.render_form(request, form, formset, subscription)
             with transaction.atomic():
                 subscription = form.save()
                 formset.instance = subscription
@@ -226,7 +230,7 @@ class SubscribeView(LoginRequiredMixin, View):
         plan = self.get_plan(pk)
         formset = CheckoutLineFormSet(request.POST)
         if formset.is_valid():
-            quantity = sum(f.cleaned_data["quantity"] for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE"))
+            quantity = formset.total_quantity()
             if quantity < plan.minimum_quantity:
                 messages.error(request, f"{plan.name} needs at least {plan.minimum_quantity} unit(s). You selected {quantity}.")
                 return self.render_form(request, plan, formset)

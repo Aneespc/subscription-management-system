@@ -17,11 +17,8 @@ class TaxForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def clean_rate(self):
-        rate = self.cleaned_data.get("rate")
-        if rate is not None and rate < Decimal("0.00"):
-            raise forms.ValidationError("Tax rate cannot be negative.")
-        return rate
+    def clean_name(self):
+        return self.cleaned_data["name"].strip()
 
 
 class InvoiceFilterForm(forms.Form):
@@ -52,4 +49,10 @@ class InvoiceFilterForm(forms.Form):
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("date_from") and cleaned.get("date_to") and cleaned["date_to"] < cleaned["date_from"]:
+            self.add_error("date_to", "End date must be on or after the start date.")
+        return cleaned
 

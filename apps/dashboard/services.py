@@ -30,6 +30,12 @@ class DashboardFilterForm(forms.Form):
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("date_from") and cleaned.get("date_to") and cleaned["date_to"] < cleaned["date_from"]:
+            self.add_error("date_to", "End date must be on or after the start date.")
+        return cleaned
+
 
 def _sum(field):
     return Coalesce(Sum(field), Value(ZERO), output_field=MONEY)

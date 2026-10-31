@@ -124,6 +124,25 @@ class SubscriptionTests(TestCase):
         self.assertEqual(invoice.subtotal, Decimal("300.00"))
         self.assertEqual(sub.next_billing_date, invoice.billing_period_end + timedelta(days=1))
 
+    def test_staff_cannot_save_active_below_minimum_or_without_lines(self):
+        staff = User.objects.create_user(username="s@test.com", email="s@test.com", password="Password123!", role="STAFF")
+        self.client.force_login(staff)
+        base = {"customer": self.customer.pk, "plan": self.plan.pk, "start_date": "2026-10-01", "expiry_date": "2026-09-01", "payment_terms": "NET_30", "status": "ACTIVE",
+                "lines-TOTAL_FORMS": "1", "lines-INITIAL_FORMS": "0", "lines-MIN_NUM_FORMS": "0", "lines-MAX_NUM_FORMS": "1000",
+                "lines-0-product": "", "lines-0-variant": "", "lines-0-quantity": "1", "lines-0-unit_price": ""}
+        response = self.client.post(reverse("subscriptions:create"), base)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("expiry_date", response.context["form"].errors)
+        self.assertTrue(response.context["formset"].non_form_errors())
+        base.update({"expiry_date": "2027-10-01", "lines-0-product": self.product.pk, "lines-0-quantity": "1"})
+        response = self.client.post(reverse("subscriptions:create"), base)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("status", response.context["form"].errors)
+        base.update({"lines-0-quantity": "3"})
+        response = self.client.post(reverse("subscriptions:create"), base)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Subscription.objects.get(customer=self.customer).status, "ACTIVE")
+
     def test_renew(self):
         sub = Subscription.objects.create(
             customer=self.customer,

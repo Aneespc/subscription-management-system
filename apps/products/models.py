@@ -1,13 +1,14 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 
 
 class Tax(models.Model):
     name = models.CharField(max_length=100)
-    rate = models.DecimalField(max_digits=5, decimal_places=2)
+    rate = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(Decimal("0.00")), MaxValueValidator(Decimal("100.00"))])
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -15,15 +16,15 @@ class Tax(models.Model):
     class Meta:
         ordering = ["name"]
         verbose_name_plural = "Taxes"
-        constraints = [models.CheckConstraint(condition=Q(rate__gte=Decimal("0.00")), name="tax_rate_gte_zero")]
+        constraints = [models.CheckConstraint(condition=Q(rate__gte=Decimal("0.00")) & Q(rate__lte=Decimal("100.00")), name="tax_rate_between_0_and_100")]
 
     def __str__(self):
         return f"{self.name} ({self.rate}%)"
 
     def clean(self):
         super().clean()
-        if self.rate is not None and self.rate < Decimal("0.00"):
-            raise ValidationError({"rate": "Tax rate cannot be negative."})
+        if self.name and Tax.objects.filter(name__iexact=self.name.strip()).exclude(pk=self.pk).exists():
+            raise ValidationError({"name": "A tax rate with this name already exists."})
 
 
 class Product(models.Model):
@@ -35,8 +36,8 @@ class Product(models.Model):
 
     name = models.CharField(max_length=255)
     product_type = models.CharField(max_length=20, choices=ProductType.choices, default=ProductType.SOFTWARE)
-    sales_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    sales_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
     notes = models.TextField(blank=True)
     tax = models.ForeignKey(Tax, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     is_active = models.BooleanField(default=True)
@@ -44,9 +45,18 @@ class Product(models.Model):
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.CheckConstraint(condition=Q(sales_price__gte=0), name="product_sales_price_gte_zero"),
+            models.CheckConstraint(condition=Q(cost_price__gte=0), name="product_cost_price_gte_zero"),
+        ]
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        if self.name and Product.objects.filter(name__iexact=self.name.strip()).exclude(pk=self.pk).exists():
+            raise ValidationError({"name": "A product with this name already exists."})
 
     @property
     def tax_rate(self):
@@ -57,7 +67,7 @@ class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
     attribute_name = models.CharField(max_length=100)
     attribute_value = models.CharField(max_length=100)
-    price_extra = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    price_extra = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
 
     class Meta:
         ordering = ["product", "attribute_name", "attribute_value"]

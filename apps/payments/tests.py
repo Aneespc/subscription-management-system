@@ -74,11 +74,22 @@ class PaymentServiceTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("payments:record", args=[self.invoice.pk]),
-            {"amount": "1000.00", "payment_method": "CARD", "payment_date": "2026-10-31T10:00", "notes": ""},
+            {"amount": "1000.00", "payment_method": "CARD", "payment_date": "2026-10-30T10:00", "notes": ""},
         )
         self.assertEqual(response.status_code, 302)
         self.invoice.refresh_from_db()
         self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+
+    def test_future_payment_date_rejected(self):
+        from django.urls import reverse
+
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("payments:record", args=[self.invoice.pk]),
+            {"amount": "10.00", "payment_method": "CARD", "payment_date": "2099-01-01T10:00", "notes": ""},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.invoice.payments.count(), 0)
 
     def test_overdue_detection(self):
         self.invoice.due_date = date.today() - timedelta(days=1)

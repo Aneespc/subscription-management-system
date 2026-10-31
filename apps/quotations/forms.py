@@ -62,8 +62,17 @@ class QuotationTemplateLineForm(IgnoreBlankLineMixin, forms.ModelForm):
         return cleaned
 
 
+class RequireOneLineFormSet(forms.BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        if not [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]:
+            raise forms.ValidationError("Add at least one product line.")
+
+
 QuotationTemplateLineFormSet = inlineformset_factory(
-    QuotationTemplate, QuotationTemplateLine, form=QuotationTemplateLineForm, extra=1, can_delete=True
+    QuotationTemplate, QuotationTemplateLine, form=QuotationTemplateLineForm, formset=RequireOneLineFormSet, extra=1, can_delete=True
 )
 
 
@@ -108,6 +117,9 @@ class QuotationForm(forms.ModelForm):
         start, end = cleaned.get("issue_date"), cleaned.get("expiry_date")
         if start and end and end < start:
             self.add_error("expiry_date", "Expiry date must be on or after the issue date.")
+        template, plan = cleaned.get("template"), cleaned.get("plan")
+        if template and plan and template.plan_id != plan.pk:
+            self.add_error("template", "This template belongs to a different plan.")
         return cleaned
 
 
@@ -142,5 +154,5 @@ class QuotationLineForm(IgnoreBlankLineMixin, forms.ModelForm):
 
 
 QuotationLineFormSet = inlineformset_factory(
-    Quotation, QuotationLine, form=QuotationLineForm, extra=1, can_delete=True
+    Quotation, QuotationLine, form=QuotationLineForm, formset=RequireOneLineFormSet, extra=1, can_delete=True
 )

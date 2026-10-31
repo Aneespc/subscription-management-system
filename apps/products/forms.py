@@ -40,7 +40,10 @@ class ProductVariantForm(forms.ModelForm):
         return super().has_changed()
 
     def clean_price_extra(self):
-        return self.cleaned_data.get("price_extra") or 0
+        value = self.cleaned_data.get("price_extra") or 0
+        if value < 0:
+            raise forms.ValidationError("Price extra cannot be negative.")
+        return value
 
     class Meta:
         model = ProductVariant

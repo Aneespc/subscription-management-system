@@ -78,8 +78,23 @@ class SubscriptionLineForm(IgnoreBlankLineMixin, forms.ModelForm):
         return cleaned
 
 
+class RequireOneLineFormSet(forms.BaseInlineFormSet):
+    def live_forms(self):
+        return [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+
+    def total_quantity(self):
+        return sum(f.cleaned_data.get("quantity") or 0 for f in self.live_forms())
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        if not self.live_forms():
+            raise forms.ValidationError("Add at least one product line.")
+
+
 SubscriptionLineFormSet = inlineformset_factory(
-    Subscription, SubscriptionLine, form=SubscriptionLineForm, extra=1, can_delete=True
+    Subscription, SubscriptionLine, form=SubscriptionLineForm, formset=RequireOneLineFormSet, extra=1, can_delete=True
 )
 
 
@@ -122,14 +137,6 @@ class CheckoutLineForm(IgnoreBlankLineMixin, forms.ModelForm):
         return cleaned
 
 
-class BaseCheckoutFormSet(forms.BaseInlineFormSet):
-    def clean(self):
-        super().clean()
-        live = [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
-        if not live:
-            raise forms.ValidationError("Add at least one product to subscribe.")
-
-
 CheckoutLineFormSet = inlineformset_factory(
-    Subscription, SubscriptionLine, form=CheckoutLineForm, formset=BaseCheckoutFormSet, extra=1, can_delete=True
+    Subscription, SubscriptionLine, form=CheckoutLineForm, formset=RequireOneLineFormSet, extra=1, can_delete=True
 )

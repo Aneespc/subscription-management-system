@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django import forms
 from django.utils import timezone
 
@@ -25,6 +27,12 @@ class PaymentForm(forms.Form):
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
     )
 
+    def clean_payment_date(self):
+        value = self.cleaned_data["payment_date"]
+        if value > timezone.now() + timedelta(minutes=5):
+            raise forms.ValidationError("Payment date cannot be in the future.")
+        return value
+
 
 class PaymentFilterForm(forms.Form):
     q = forms.CharField(
@@ -38,3 +46,9 @@ class PaymentFilterForm(forms.Form):
     )
     date_from = forms.DateField(required=False, widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}))
     date_to = forms.DateField(required=False, widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}))
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("date_from") and cleaned.get("date_to") and cleaned["date_to"] < cleaned["date_from"]:
+            self.add_error("date_to", "End date must be on or after the start date.")
+        return cleaned

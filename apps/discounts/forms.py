@@ -59,7 +59,11 @@ class DiscountForm(forms.ModelForm):
             self.add_error("minimum_purchase", "Minimum purchase cannot be negative.")
 
         if applies_to == Discount.AppliesTo.PRODUCTS and not products:
-            self.add_error("products", "Please select at least one product when applies_to is set to 'Specific Products'.")
+            self.add_error("products", "Select at least one product for a product-specific discount.")
+
+        usage_limit = cleaned_data.get("usage_limit")
+        if usage_limit is not None and self.instance.pk and usage_limit < self.instance.usage_count:
+            self.add_error("usage_limit", f"This discount has already been used {self.instance.usage_count} times.")
 
         return cleaned_data
 

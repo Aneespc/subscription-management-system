@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
@@ -24,6 +25,7 @@ class Discount(models.Model):
     value = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
         help_text="Fixed amount or percentage value",
     )
     minimum_purchase = models.DecimalField(
@@ -36,6 +38,7 @@ class Discount(models.Model):
     minimum_quantity = models.PositiveIntegerField(
         null=True,
         blank=True,
+        validators=[MinValueValidator(1)],
         help_text="Minimum total item quantity required to apply this discount",
     )
     start_date = models.DateField()
@@ -43,6 +46,7 @@ class Discount(models.Model):
     usage_limit = models.PositiveIntegerField(
         null=True,
         blank=True,
+        validators=[MinValueValidator(1)],
         help_text="Maximum number of times this discount can be used (null = unlimited)",
     )
     usage_count = models.PositiveIntegerField(
@@ -106,6 +110,9 @@ class Discount(models.Model):
 
         if self.minimum_purchase is not None and self.minimum_purchase < Decimal("0.00"):
             raise ValidationError({"minimum_purchase": "Minimum purchase amount cannot be negative."})
+
+        if self.name and Discount.objects.filter(name__iexact=self.name.strip()).exclude(pk=self.pk).exists():
+            raise ValidationError({"name": "A discount with this name already exists."})
 
     @property
     def is_currently_valid(self):
