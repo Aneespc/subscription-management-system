@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Products{% endblock %}
+{% block header_title %}Products{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Products</h1><p>{{ active_total }} active of {{ total }} product{{ total|pluralize }}. Variants add to the base sales price.</p></div>
+  <a href="{% url 'products:create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New product</a>
+</div>
+<div class="card mb-4"><div class="card-body py-3">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-md-5"><div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span><input type="text" name="q" class="form-control" placeholder="Search name or notes..." value="{{ search_query }}"></div></div>
+    <div class="col-md-3">
+      <select name="type" class="form-select"><option value="">All types</option>{% for value, label in product_types %}<option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2"><div class="form-check"><input class="form-check-input" type="checkbox" name="active" value="1" id="active-only" {% if request.GET.active == '1' %}checked{% endif %}><label class="form-check-label" for="active-only">Active only</label></div></div>
+    <div class="col-md-2 d-flex gap-2"><button class="btn btn-dark w-100" type="submit">Filter</button><a href="{% url 'products:list' %}" class="btn btn-light">Reset</a></div>
+  </form>
+</div></div>
+<div class="card"><div class="table-responsive">
+  <table class="table table-hover">
+    <thead><tr><th>Product</th><th>Type</th><th class="num">Sales price</th><th class="num">Cost price</th><th>Tax</th><th class="text-center">Variants</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+    <tbody>
+      {% for p in products %}
+        <tr>
+          <td><a href="{% url 'products:edit' p.pk %}" class="fw-semibold">{{ p.name }}</a>{% if p.notes %}<div class="small text-muted">{{ p.notes|truncatechars:60 }}</div>{% endif %}</td>
+          <td><span class="badge bg-light text-dark border">{{ p.get_product_type_display }}</span></td>
+          <td class="num fw-semibold">${{ p.sales_price|floatformat:2|intcomma }}</td>
+          <td class="num text-muted">${{ p.cost_price|floatformat:2|intcomma }}</td>
+          <td>{% if p.tax %}<span class="badge bg-light text-dark border">{{ p.tax.name }} {{ p.tax.rate }}%</span>{% else %}<span class="text-muted">None</span>{% endif %}</td>
+          <td class="text-center">{{ p.variant_count }}</td>
+          <td>{% if p.is_active %}<span class="badge-status badge-active">Active</span>{% else %}<span class="badge-status badge-inactive">Inactive</span>{% endif %}</td>
+          <td class="text-end"><a href="{% url 'products:edit' p.pk %}" class="btn btn-sm btn-light"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i>No products yet. Add the first one to start building plans and quotes.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% include "components/pagination.html" %}
+{% endblock %}

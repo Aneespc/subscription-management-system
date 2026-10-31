@@ -1,236 +1,161 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Q
-from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse, reverse_lazy
+from django.db.models import Count, Q, Sum
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
-from django.views.generic import (
-    CreateView,
-    DetailView,
-    FormView,
-    ListView,
-    UpdateView,
-)
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from apps.invoicing.forms import InvoiceFilterForm, InvoiceGenerateForm, TaxForm
-from apps.invoicing.models import Invoice, Tax
-from apps.invoicing.permissions import AdminRequiredMixin, StaffOrAdminRequiredMixin
+from apps.accounts.mixins import AdminRequiredMixin, StaffRequiredMixin, is_staff_user
+from apps.invoicing.forms import InvoiceFilterForm, TaxForm
+from apps.invoicing.models import Invoice
 from apps.invoicing.services import InvoiceService
+from apps.payments.services import calculate_outstanding
+from apps.products.models import Tax
+
+
+def scoped_invoices(user):
+    qs = Invoice.objects.all()
+    if not is_staff_user(user):
+        qs = qs.filter(customer__user=user)
+    return qs
 
 
 class InvoiceListView(LoginRequiredMixin, ListView):
-    model = Invoice
     template_name = "invoicing/invoice_list.html"
     context_object_name = "invoices"
     paginate_by = 20
 
     def get_queryset(self):
-        user = self.request.user
-        qs = (
-            Invoice.objects.select_related("customer", "customer__user", "subscription")
-            .prefetch_related("lines")
-            .order_by("-issue_date", "-id")
-        )
-
-        # Customer isolation: customers can ONLY see their own invoices
-        if not (getattr(user, "is_staff_role", False) or user.is_staff or user.is_superuser):
-            qs = qs.filter(customer__user=user)
-
-        # Filters
+        qs = scoped_invoices(self.request.user).select_related("customer", "customer__user", "subscription")
         form = InvoiceFilterForm(self.request.GET)
         if form.is_valid():
-            q = form.cleaned_data.get("q")
-            status = form.cleaned_data.get("status")
-            customer = form.cleaned_data.get("customer")
-            date_from = form.cleaned_data.get("date_from")
-            date_to = form.cleaned_data.get("date_to")
-            overdue_only = form.cleaned_data.get("overdue_only")
-
-            if q:
+            data = form.cleaned_data
+            if data.get("q"):
+                q = data["q"]
                 qs = qs.filter(
                     Q(invoice_number__icontains=q)
                     | Q(customer__company_name__icontains=q)
-                    | Q(customer__user__username__icontains=q)
-                    | Q(customer__billing_email__icontains=q)
+                    | Q(customer__user__email__icontains=q)
+                    | Q(subscription__subscription_number__icontains=q)
                 )
-            if status:
-                qs = qs.filter(status=status)
-            if customer and (getattr(user, "is_staff_role", False) or user.is_staff):
-                qs = qs.filter(customer=customer)
-            if date_from:
-                qs = qs.filter(issue_date__gte=date_from)
-            if date_to:
-                qs = qs.filter(issue_date__lte=date_to)
-            if overdue_only:
-                today = timezone.now().date()
-                qs = qs.filter(
-                    status__in=[Invoice.Status.DRAFT, Invoice.Status.CONFIRMED],
-                    due_date__lt=today,
-                )
-
-        return qs
+            if data.get("status"):
+                qs = qs.filter(status=data["status"])
+            if data.get("customer") and is_staff_user(self.request.user):
+                qs = qs.filter(customer=data["customer"])
+            if data.get("date_from"):
+                qs = qs.filter(issue_date__gte=data["date_from"])
+            if data.get("date_to"):
+                qs = qs.filter(issue_date__lte=data["date_to"])
+            if data.get("overdue_only"):
+                qs = qs.filter(status=Invoice.Status.CONFIRMED, due_date__lt=timezone.localdate())
+        return qs.order_by("-issue_date", "-id")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        base = scoped_invoices(self.request.user)
+        today = timezone.localdate()
         context["filter_form"] = InvoiceFilterForm(self.request.GET)
-        context["is_staff_user"] = (
-            getattr(self.request.user, "is_staff_role", False)
-            or self.request.user.is_staff
-            or self.request.user.is_superuser
+        context["is_staff_user"] = is_staff_user(self.request.user)
+        context["kpis"] = base.aggregate(
+            total=Count("id"),
+            draft=Count("id", filter=Q(status="DRAFT")),
+            outstanding=Sum("total_amount", filter=Q(status="CONFIRMED")),
+            overdue=Count("id", filter=Q(status="CONFIRMED", due_date__lt=today)),
+            paid=Sum("total_amount", filter=Q(status="PAID")),
         )
         return context
 
 
 class InvoiceDetailView(LoginRequiredMixin, DetailView):
-    model = Invoice
     template_name = "invoicing/invoice_detail.html"
     context_object_name = "invoice"
 
     def get_queryset(self):
-        return (
-            Invoice.objects.select_related(
-                "customer",
-                "customer__user",
-                "subscription",
-                "subscription__plan",
-            )
-            .prefetch_related(
-                "lines",
-                "lines__product",
-                "lines__tax",
-                "tax_lines",
-                "discount_usages",
-                "discount_usages__discount",
-                "payments",
-            )
+        return scoped_invoices(self.request.user).select_related(
+            "customer", "customer__user", "subscription", "subscription__plan"
+        ).prefetch_related(
+            "lines__product", "lines__tax", "tax_lines", "discount_usages__discount", "payments__recorded_by"
         )
-
-    def get_object(self, queryset=None):
-        invoice = super().get_object(queryset)
-        user = self.request.user
-
-        # Access check: customer can only view their own invoice
-        is_staff_or_admin = (
-            getattr(user, "is_staff_role", False) or user.is_staff or user.is_superuser
-        )
-        if not is_staff_or_admin:
-            if invoice.customer.user != user:
-                raise PermissionDenied("You do not have permission to view this invoice.")
-
-        return invoice
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user = self.request.user
-        context["can_manage"] = (
-            getattr(user, "is_staff_role", False) or user.is_staff or user.is_superuser
-        )
+        context["can_manage"] = is_staff_user(self.request.user)
+        context["outstanding"] = calculate_outstanding(self.object)
+        context["paid"] = self.object.total_amount - context["outstanding"]
+        context["payments"] = self.object.payments.all().order_by("-payment_date")
         return context
 
 
-class InvoiceCreateView(StaffOrAdminRequiredMixin, FormView):
-    """Manual invoice generation view for Staff and Admin."""
-    template_name = "invoicing/invoice_generate.html"
-    form_class = InvoiceGenerateForm
+class BillingRunView(StaffRequiredMixin, View):
+    template_name = "invoicing/billing_run.html"
 
-    def form_valid(self, form):
-        subscription = form.cleaned_data["subscription"]
-        period_start = form.cleaned_data["billing_period_start"]
-        period_end = form.cleaned_data["billing_period_end"]
+    def get(self, request):
+        from apps.subscriptions.models import Subscription
 
-        try:
-            invoice = InvoiceService.generate_for_subscription(
-                subscription=subscription,
-                period_start=period_start,
-                period_end=period_end,
-            )
-            messages.success(
-                self.request,
-                f"Invoice {invoice.invoice_number} created successfully for {subscription.customer}.",
-            )
-            return redirect("invoicing:invoice_detail", pk=invoice.pk)
-        except Exception as exc:
-            messages.error(self.request, f"Failed to generate invoice: {exc}")
-            return self.form_invalid(form)
+        today = timezone.localdate()
+        due = (
+            Subscription.objects.filter(status=Subscription.Status.ACTIVE, next_billing_date__lte=today)
+            .select_related("customer", "plan")
+            .order_by("next_billing_date")
+        )
+        return render(request, self.template_name, {"due_subscriptions": due[:200], "due_count": due.count(), "today": today})
+
+    def post(self, request):
+        result = InvoiceService.generate_due_invoices()
+        if result["created"]:
+            messages.success(request, f"Billing run complete: {result['created']} invoice(s) created.")
+        else:
+            messages.info(request, "Billing run complete: nothing was due.")
+        if result["failed"]:
+            messages.error(request, f"{result['failed']} subscription(s) failed to bill. Check the logs.")
+        if result["auto_closed"]:
+            messages.info(request, f"{result['auto_closed']} expired subscription(s) closed automatically.")
+        return redirect("invoicing:invoice_list")
 
 
-class InvoiceConfirmView(StaffOrAdminRequiredMixin, View):
+class InvoiceConfirmView(StaffRequiredMixin, View):
     def post(self, request, pk):
         invoice = get_object_or_404(Invoice, pk=pk)
         try:
             InvoiceService.confirm(invoice)
-            messages.success(request, f"Invoice {invoice.invoice_number} has been confirmed.")
+            messages.success(request, f"Invoice {invoice.invoice_number} confirmed.")
         except ValidationError as exc:
-            messages.error(request, str(exc.message if hasattr(exc, "message") else exc))
+            messages.error(request, "; ".join(exc.messages))
         return redirect("invoicing:invoice_detail", pk=pk)
 
 
-class InvoiceCancelView(StaffOrAdminRequiredMixin, View):
+class InvoiceCancelView(StaffRequiredMixin, View):
     def post(self, request, pk):
         invoice = get_object_or_404(Invoice, pk=pk)
         try:
             InvoiceService.cancel(invoice)
-            messages.warning(request, f"Invoice {invoice.invoice_number} has been cancelled.")
+            messages.warning(request, f"Invoice {invoice.invoice_number} cancelled.")
         except ValidationError as exc:
-            messages.error(request, str(exc.message if hasattr(exc, "message") else exc))
+            messages.error(request, "; ".join(exc.messages))
         return redirect("invoicing:invoice_detail", pk=pk)
 
 
-class InvoiceSendView(StaffOrAdminRequiredMixin, View):
+class InvoiceSendView(StaffRequiredMixin, View):
     def post(self, request, pk):
         invoice = get_object_or_404(Invoice, pk=pk)
         try:
             InvoiceService.send(invoice)
-            messages.success(
-                request,
-                f"Invoice {invoice.invoice_number} successfully emailed to "
-                f"{invoice.customer.billing_email or invoice.customer.user.email} with PDF attached.",
-            )
+            messages.success(request, f"Invoice {invoice.invoice_number} emailed to {invoice.customer.contact_email}.")
         except Exception as exc:
-            messages.error(request, f"Failed to send invoice email: {exc}")
+            messages.error(request, f"Failed to send invoice: {exc}")
         return redirect("invoicing:invoice_detail", pk=pk)
 
 
 class InvoicePrintView(LoginRequiredMixin, DetailView):
-    model = Invoice
     template_name = "invoicing/invoice_print.html"
     context_object_name = "invoice"
 
-    def get_object(self, queryset=None):
-        invoice = super().get_object(queryset)
-        user = self.request.user
-        is_staff_or_admin = (
-            getattr(user, "is_staff_role", False) or user.is_staff or user.is_superuser
-        )
-        if not is_staff_or_admin and invoice.customer.user != user:
-            raise PermissionDenied("You do not have permission to view this invoice.")
-        return invoice
+    def get_queryset(self):
+        return scoped_invoices(self.request.user).select_related("customer", "customer__user", "subscription")
 
-
-class InvoicePDFView(LoginRequiredMixin, View):
-    def get(self, request, pk):
-        invoice = get_object_or_404(Invoice, pk=pk)
-        user = request.user
-        is_staff_or_admin = (
-            getattr(user, "is_staff_role", False) or user.is_staff or user.is_superuser
-        )
-        if not is_staff_or_admin and invoice.customer.user != user:
-            raise PermissionDenied("You do not have permission to view this invoice.")
-
-        try:
-            pdf_bytes = InvoiceService.render_pdf(invoice)
-            response = HttpResponse(pdf_bytes, content_type="application/pdf")
-            response["Content-Disposition"] = f'inline; filename="{invoice.invoice_number}.pdf"'
-            return response
-        except Exception as exc:
-            messages.error(request, f"Could not generate PDF: {exc}")
-            return redirect("invoicing:invoice_detail", pk=pk)
-
-
-# --- Tax Configuration Views (ADMIN ONLY) ---
 
 class TaxListView(AdminRequiredMixin, ListView):
     model = Tax
@@ -247,7 +172,7 @@ class TaxCreateView(AdminRequiredMixin, CreateView):
     success_url = reverse_lazy("invoicing:tax_list")
 
     def form_valid(self, form):
-        messages.success(self.request, f"Tax rate '{form.cleaned_data['name']}' created successfully.")
+        messages.success(self.request, f"Tax rate {form.cleaned_data['name']} created.")
         return super().form_valid(form)
 
 
@@ -258,6 +183,5 @@ class TaxUpdateView(AdminRequiredMixin, UpdateView):
     success_url = reverse_lazy("invoicing:tax_list")
 
     def form_valid(self, form):
-        messages.success(self.request, f"Tax rate '{form.cleaned_data['name']}' updated successfully.")
+        messages.success(self.request, f"Tax rate {form.cleaned_data['name']} updated.")
         return super().form_valid(form)
-

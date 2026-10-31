@@ -1,300 +1,229 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views import View
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib import messages
-from django.urls import reverse_lazy, reverse
-from django.db.models import Q, Count
-from .models import Quotation, QuotationLine, QuotationTemplate, QuotationTemplateLine
-from .forms import (
-    QuotationForm, QuotationLineFormSet,
-    QuotationTemplateForm, QuotationTemplateLineFormSet,
-    TemplateSelectForm
-)
-from .services import QuotationService
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views import View
+from django.views.generic import DetailView, ListView
+
+from apps.accounts.mixins import StaffRequiredMixin
 from apps.accounts.models import CustomerProfile
+from apps.products.models import ProductVariant
+
+from .forms import (
+    QuotationForm,
+    QuotationLineFormSet,
+    QuotationTemplateForm,
+    QuotationTemplateLineFormSet,
+    TemplateSelectForm,
+)
+from .models import Quotation, QuotationTemplate
+from .services import QuotationService
 
 
-class QuotationListView(ListView):
-    model = Quotation
+class QuotationListView(StaffRequiredMixin, ListView):
     template_name = "quotations/quotation_list.html"
     context_object_name = "quotations"
-    paginate_by = 15
+    paginate_by = 20
 
     def get_queryset(self):
-        qs = Quotation.objects.select_related("customer", "template", "created_by").all().order_by("-created_at")
-        user = self.request.user
-        if user.is_authenticated and hasattr(user, "role") and user.role == "CUSTOMER":
-            qs = qs.filter(customer__user=user)
-
-        status = self.request.GET.get("status")
-        q = self.request.GET.get("q")
-        customer_id = self.request.GET.get("customer")
-
-        if status:
-            qs = qs.filter(status=status)
-        if customer_id and (not user.is_authenticated or user.role != "CUSTOMER"):
-            qs = qs.filter(customer_id=customer_id)
-        if q:
+        qs = Quotation.objects.select_related("customer", "customer__user", "template", "plan", "created_by")
+        params = self.request.GET
+        if params.get("status"):
+            qs = qs.filter(status=params["status"])
+        if params.get("customer"):
+            qs = qs.filter(customer_id=params["customer"])
+        if params.get("q"):
+            q = params["q"]
             qs = qs.filter(
-                Q(quotation_number__icontains=q) |
-                Q(customer__company_name__icontains=q) |
-                Q(customer__user__email__icontains=q)
+                Q(quotation_number__icontains=q)
+                | Q(customer__company_name__icontains=q)
+                | Q(customer__user__email__icontains=q)
             )
-        return qs
+        return qs.order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user = self.request.user
-        if user.is_authenticated and hasattr(user, "role") and user.role == "CUSTOMER":
-            all_quotes = Quotation.objects.filter(customer__user=user)
-        else:
-            all_quotes = Quotation.objects.all()
-        context["status_counts"] = {
-            "all": all_quotes.count(),
-            "draft": all_quotes.filter(status=Quotation.Status.DRAFT).count(),
-            "quotation": all_quotes.filter(status=Quotation.Status.QUOTATION).count(),
-            "confirmed": all_quotes.filter(status=Quotation.Status.CONFIRMED).count(),
-            "converted": all_quotes.filter(status=Quotation.Status.CONVERTED).count(),
-        }
-        context["customers"] = CustomerProfile.objects.all()
+        context["status_counts"] = Quotation.objects.aggregate(
+            all=Count("id"),
+            draft=Count("id", filter=Q(status="DRAFT")),
+            quotation=Count("id", filter=Q(status="QUOTATION")),
+            confirmed=Count("id", filter=Q(status="CONFIRMED")),
+            converted=Count("id", filter=Q(status="CONVERTED")),
+        )
+        context["customers"] = CustomerProfile.objects.order_by("company_name")
         context["current_status"] = self.request.GET.get("status", "")
         context["search_query"] = self.request.GET.get("q", "")
         context["selected_customer"] = self.request.GET.get("customer", "")
         return context
 
 
-class QuotationDetailView(DetailView):
-    model = Quotation
+class QuotationDetailView(StaffRequiredMixin, DetailView):
     template_name = "quotations/quotation_detail.html"
     context_object_name = "quotation"
 
+    def get_queryset(self):
+        return Quotation.objects.select_related("customer", "customer__user", "template", "plan", "created_by")
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["lines"] = self.object.lines.select_related("product", "variant").all()
+        context["lines"] = self.object.lines.select_related("product", "variant")
         return context
 
 
-class QuotationPrintView(DetailView):
-    model = Quotation
+class QuotationPrintView(QuotationDetailView):
     template_name = "quotations/quotation_print.html"
-    context_object_name = "quotation"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["lines"] = self.object.lines.select_related("product", "variant").all()
-        return context
 
 
-class QuotationCreateView(View):
+class QuotationFormView(StaffRequiredMixin, View):
     template_name = "quotations/quotation_form.html"
 
-    def get(self, request):
-        form = QuotationForm()
-        formset = QuotationLineFormSet()
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "title": "Create Quotation"
-        })
-
-    def post(self, request):
-        form = QuotationForm(request.POST)
-        formset = QuotationLineFormSet(request.POST)
-
-        if form.is_valid() and formset.is_valid():
-            quotation = form.save(commit=False)
-            if request.user.is_authenticated:
-                quotation.created_by = request.user
-            quotation.save()
-
-            formset.instance = quotation
-            formset.save()
-
-            QuotationService.recalculate_totals(quotation)
-            messages.success(request, f"Quotation {quotation.quotation_number} created successfully!")
-            return redirect("quotations:detail", pk=quotation.pk)
-
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "title": "Create Quotation"
-        })
-
-
-class QuotationUpdateView(View):
-    template_name = "quotations/quotation_form.html"
-
-    def get(self, request, pk):
+    def get_quotation(self, pk):
+        if not pk:
+            return None
         quotation = get_object_or_404(Quotation, pk=pk)
-        form = QuotationForm(instance=quotation)
-        formset = QuotationLineFormSet(instance=quotation)
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "quotation": quotation,
-            "title": f"Edit Quotation {quotation.quotation_number}"
-        })
+        if not quotation.can_edit():
+            raise PermissionDenied("Only draft or sent quotations can be edited.")
+        return quotation
 
-    def post(self, request, pk):
-        quotation = get_object_or_404(Quotation, pk=pk)
+    def render_form(self, request, form, formset, quotation):
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "formset": formset,
+                "quotation": quotation,
+                "title": f"Edit {quotation.quotation_number}" if quotation else "New Quotation",
+                "variant_map": {str(v["id"]): str(v["product_id"]) for v in ProductVariant.objects.values("id", "product_id")},
+            },
+        )
+
+    def get(self, request, pk=None):
+        quotation = self.get_quotation(pk)
+        return self.render_form(
+            request, QuotationForm(instance=quotation), QuotationLineFormSet(instance=quotation), quotation
+        )
+
+    def post(self, request, pk=None):
+        quotation = self.get_quotation(pk)
         form = QuotationForm(request.POST, instance=quotation)
         formset = QuotationLineFormSet(request.POST, instance=quotation)
-
         if form.is_valid() and formset.is_valid():
-            quotation = form.save()
-            formset.save()
-            QuotationService.recalculate_totals(quotation)
-            messages.success(request, f"Quotation {quotation.quotation_number} updated.")
+            with transaction.atomic():
+                quotation = form.save(commit=False)
+                if not quotation.pk:
+                    quotation.created_by = request.user
+                quotation.save()
+                formset.instance = quotation
+                formset.save()
+                QuotationService.recalculate_totals(quotation)
+            messages.success(request, f"Quotation {quotation.quotation_number} saved.")
             return redirect("quotations:detail", pk=quotation.pk)
-
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "quotation": quotation,
-            "title": f"Edit Quotation {quotation.quotation_number}"
-        })
+        return self.render_form(request, form, formset, quotation)
 
 
-class QuotationActionView(View):
+class QuotationActionView(StaffRequiredMixin, View):
     def post(self, request, pk, action):
         quotation = get_object_or_404(Quotation, pk=pk)
-
+        number = quotation.quotation_number
         try:
             if action == "send":
                 QuotationService.send_quotation(quotation)
-                messages.success(request, f"Quotation {quotation.quotation_number} sent to customer.")
+                messages.success(request, f"{number} marked as sent to {quotation.customer.company_name}.")
             elif action == "confirm":
                 QuotationService.confirm_quotation(quotation)
-                messages.success(request, f"Quotation {quotation.quotation_number} confirmed.")
+                messages.success(request, f"{number} confirmed.")
             elif action == "convert":
                 subscription = QuotationService.convert_to_subscription(quotation)
-                messages.success(
-                    request,
-                    f"Quotation converted to Subscription {subscription.subscription_number}!"
-                )
+                messages.success(request, f"{number} converted into subscription {subscription.subscription_number}.")
                 return redirect("subscriptions:detail", pk=subscription.pk)
-            elif action == "cancel":
-                quotation.status = Quotation.Status.CANCELLED
-                quotation.save(update_fields=["status"])
-                messages.warning(request, f"Quotation {quotation.quotation_number} cancelled.")
             else:
                 messages.error(request, "Unknown action.")
-        except Exception as e:
-            messages.error(request, f"Error processing action: {str(e)}")
-
+        except ValueError as err:
+            messages.error(request, str(err))
         return redirect("quotations:detail", pk=quotation.pk)
 
 
-class CreateFromTemplateView(View):
+class CreateFromTemplateView(StaffRequiredMixin, View):
     template_name = "quotations/template_select.html"
 
+    def render_page(self, request, form):
+        templates = (
+            QuotationTemplate.objects.filter(is_active=True)
+            .select_related("plan")
+            .prefetch_related("template_lines__product", "template_lines__variant")
+        )
+        return render(request, self.template_name, {"form": form, "templates": templates})
+
     def get(self, request):
-        form = TemplateSelectForm()
-        templates = QuotationTemplate.objects.filter(is_active=True).select_related("plan")
-        return render(request, self.template_name, {
-            "form": form,
-            "templates": templates
-        })
+        form = TemplateSelectForm(initial={"template": request.GET.get("template")})
+        return self.render_page(request, form)
 
     def post(self, request):
         form = TemplateSelectForm(request.POST)
         if form.is_valid():
-            template = form.cleaned_data["template"]
-            customer = form.cleaned_data["customer"]
-            terms = form.cleaned_data["payment_terms"]
-            created_by = request.user if request.user.is_authenticated else None
-
             quotation = QuotationService.create_from_template(
-                template=template,
-                customer=customer,
-                created_by=created_by,
-                payment_terms=terms
+                template=form.cleaned_data["template"],
+                customer=form.cleaned_data["customer"],
+                created_by=request.user,
+                payment_terms=form.cleaned_data["payment_terms"],
             )
-            messages.success(
-                request,
-                f"Quotation {quotation.quotation_number} created from template '{template.name}'!"
-            )
+            messages.success(request, f"Quotation {quotation.quotation_number} created from template.")
             return redirect("quotations:detail", pk=quotation.pk)
-
-        templates = QuotationTemplate.objects.filter(is_active=True).select_related("plan")
-        return render(request, self.template_name, {
-            "form": form,
-            "templates": templates
-        })
+        return self.render_page(request, form)
 
 
-class TemplateListView(ListView):
-    model = QuotationTemplate
+class TemplateListView(StaffRequiredMixin, ListView):
     template_name = "quotations/template_list.html"
     context_object_name = "templates"
 
     def get_queryset(self):
-        return QuotationTemplate.objects.select_related("plan", "created_by").prefetch_related("template_lines").all()
+        return (
+            QuotationTemplate.objects.select_related("plan", "created_by")
+            .prefetch_related("template_lines__product", "template_lines__variant")
+            .annotate(quotation_count=Count("quotations"))
+            .order_by("-is_active", "name")
+        )
 
 
-class TemplateCreateView(View):
+class TemplateFormView(StaffRequiredMixin, View):
     template_name = "quotations/template_form.html"
 
-    def get(self, request):
-        form = QuotationTemplateForm()
-        formset = QuotationTemplateLineFormSet()
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "title": "Create Quotation Template"
-        })
+    def get_template(self, pk):
+        return get_object_or_404(QuotationTemplate, pk=pk) if pk else None
 
-    def post(self, request):
-        form = QuotationTemplateForm(request.POST)
-        formset = QuotationTemplateLineFormSet(request.POST)
+    def render_form(self, request, form, formset, template):
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "formset": formset,
+                "template_obj": template,
+                "title": f"Edit {template.name}" if template else "New Quotation Template",
+                "variant_map": {str(v["id"]): str(v["product_id"]) for v in ProductVariant.objects.values("id", "product_id")},
+            },
+        )
 
-        if form.is_valid() and formset.is_valid():
-            template = form.save(commit=False)
-            if request.user.is_authenticated:
-                template.created_by = request.user
-            template.save()
+    def get(self, request, pk=None):
+        template = self.get_template(pk)
+        return self.render_form(
+            request, QuotationTemplateForm(instance=template), QuotationTemplateLineFormSet(instance=template), template
+        )
 
-            formset.instance = template
-            formset.save()
-
-            messages.success(request, f"Template '{template.name}' created successfully.")
-            return redirect("quotations:template_list")
-
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "title": "Create Quotation Template"
-        })
-
-
-class TemplateUpdateView(View):
-    template_name = "quotations/template_form.html"
-
-    def get(self, request, pk):
-        template = get_object_or_404(QuotationTemplate, pk=pk)
-        form = QuotationTemplateForm(instance=template)
-        formset = QuotationTemplateLineFormSet(instance=template)
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "template_obj": template,
-            "title": f"Edit Template '{template.name}'"
-        })
-
-    def post(self, request, pk):
-        template = get_object_or_404(QuotationTemplate, pk=pk)
+    def post(self, request, pk=None):
+        template = self.get_template(pk)
         form = QuotationTemplateForm(request.POST, instance=template)
         formset = QuotationTemplateLineFormSet(request.POST, instance=template)
-
         if form.is_valid() and formset.is_valid():
-            template = form.save()
-            formset.save()
-            messages.success(request, f"Template '{template.name}' updated.")
+            with transaction.atomic():
+                template = form.save(commit=False)
+                if not template.pk:
+                    template.created_by = request.user
+                template.save()
+                formset.instance = template
+                formset.save()
+            messages.success(request, f"Template {template.name} saved.")
             return redirect("quotations:template_list")
-
-        return render(request, self.template_name, {
-            "form": form,
-            "formset": formset,
-            "template_obj": template,
-            "title": f"Edit Template '{template.name}'"
-        })
+        return self.render_form(request, form, formset, template)

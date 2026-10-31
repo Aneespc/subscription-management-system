@@ -1,235 +1,93 @@
-{% extends 'base.html' %}
-
-{% block title %}{{ quotation.quotation_number }} - Brightloop Software{% endblock %}
-
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ quotation.quotation_number }}{% endblock %}
+{% block header_title %}Quotation{% endblock %}
 {% block content %}
-<div class="mb-4">
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-    <div>
-      <div class="d-flex align-items-center gap-3">
-        <h2 class="h3 fw-bold mb-0">{{ quotation.quotation_number }}</h2>
-        <span class="badge-status badge-{{ quotation.status|lower }} fs-6">
-          {{ quotation.get_status_display }}
-        </span>
-      </div>
-      <p class="text-muted small mt-1 mb-0">Customer: <strong>{{ quotation.customer.company_name }}</strong> &middot; Created {{ quotation.created_at|date:"M d, Y" }}</p>
+<div class="page-header">
+  <div>
+    <a href="{% url 'quotations:list' %}" class="small text-muted"><i class="bi bi-arrow-left me-1"></i>All quotations</a>
+    <div class="d-flex align-items-center gap-3 mt-1 flex-wrap">
+      <h1 class="mb-0">{{ quotation.quotation_number }}</h1>
+      <span class="badge-status badge-{{ quotation.status|lower }}">{{ quotation.get_status_display }}</span>
+      {% if quotation.is_expired %}<span class="badge-status badge-cancelled">Expired</span>{% endif %}
     </div>
-
-    <!-- Lifecycle Actions -->
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{% url 'quotations:print' quotation.pk %}" target="_blank" class="btn btn-outline-secondary">
-        <i class="bi bi-printer me-1"></i> Print / PDF
-      </a>
-
-      {% if quotation.status == 'DRAFT' or quotation.status == 'QUOTATION' %}
-        <a href="{% url 'quotations:edit' quotation.pk %}" class="btn btn-outline-secondary">
-          <i class="bi bi-pencil me-1"></i> Edit
-        </a>
-      {% endif %}
-
-      {% if quotation.status == 'DRAFT' %}
-        <form method="post" action="{% url 'quotations:action' quotation.pk 'send' %}" class="d-inline">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-outline-info">
-            <i class="bi bi-send me-1"></i> Send to Customer
-          </button>
-        </form>
-      {% endif %}
-
-      {% if quotation.status == 'DRAFT' or quotation.status == 'QUOTATION' %}
-        <form method="post" action="{% url 'quotations:action' quotation.pk 'confirm' %}" class="d-inline">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-success">
-            <i class="bi bi-check-circle me-1"></i> Confirm Quotation
-          </button>
-        </form>
-        <form method="post" action="{% url 'quotations:action' quotation.pk 'cancel' %}" class="d-inline" onsubmit="return confirm('Cancel this quotation?');">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-outline-danger">
-            <i class="bi bi-x-circle me-1"></i> Cancel
-          </button>
-        </form>
-      {% endif %}
-
-      {% if quotation.status == 'CONFIRMED' %}
-        <form method="post" action="{% url 'quotations:action' quotation.pk 'convert' %}" class="d-inline">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-primary btn-lg shadow-sm">
-            <i class="bi bi-arrow-repeat me-1"></i> Convert to Active Subscription
-          </button>
-        </form>
-      {% endif %}
-
-      {% if quotation.status == 'CONVERTED' and quotation.subscription %}
-        <a href="{% url 'subscriptions:detail' quotation.subscription.pk %}" class="btn btn-primary">
-          <i class="bi bi-box-arrow-up-right me-1"></i> View Subscription ({{ quotation.subscription.subscription_number }})
-        </a>
-      {% endif %}
-    </div>
+    <p>{{ quotation.customer.company_name }} &middot; issued {{ quotation.issue_date|date:"M d, Y" }} &middot; valid until {{ quotation.expiry_date|date:"M d, Y" }}{% if quotation.days_remaining is not None and not quotation.is_expired and quotation.status in 'DRAFT QUOTATION' %} ({{ quotation.days_remaining }} day{{ quotation.days_remaining|pluralize }} left){% endif %}</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'quotations:print' quotation.pk %}" target="_blank" class="btn btn-light"><i class="bi bi-printer me-1"></i>Print</a>
+    {% if quotation.can_edit %}<a href="{% url 'quotations:edit' quotation.pk %}" class="btn btn-light"><i class="bi bi-pencil me-1"></i>Edit</a>{% endif %}
+    {% if quotation.can_send %}<form method="post" action="{% url 'quotations:action' quotation.pk 'send' %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit"><i class="bi bi-send me-1"></i>Mark as sent</button></form>{% endif %}
+    {% if quotation.can_confirm %}<form method="post" action="{% url 'quotations:action' quotation.pk 'confirm' %}">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Confirm</button></form>{% endif %}
+    {% if quotation.can_convert %}<form method="post" action="{% url 'quotations:action' quotation.pk 'convert' %}" data-confirm="Create a subscription from this quotation?">{% csrf_token %}<button class="btn btn-success" type="submit"><i class="bi bi-arrow-right-circle me-1"></i>Convert to subscription</button></form>{% endif %}
   </div>
 </div>
+
+{% if quotation.subscription %}
+  <div class="alert alert-success d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i><div>Converted into subscription <a href="{% url 'subscriptions:detail' quotation.subscription.pk %}" class="fw-semibold">{{ quotation.subscription.subscription_number }}</a>.</div></div>
+{% endif %}
 
 <div class="row g-4 mb-4">
-  <!-- Customer & Quotation Meta -->
   <div class="col-lg-8">
-    <div class="card h-100 border-0 shadow-sm">
-      <div class="card-header bg-white py-3 border-bottom">
-        <h5 class="card-title mb-0 fw-semibold">Quotation Information</h5>
-      </div>
+    <div class="card h-100">
+      <div class="card-header">Offer details</div>
       <div class="card-body">
-        <div class="row g-3">
+        <div class="row g-4">
           <div class="col-sm-6">
-            <div class="text-muted small">Customer Company</div>
-            <div class="fw-bold fs-6">{{ quotation.customer.company_name }}</div>
-            <div class="text-muted small">{{ quotation.customer.user.email }}</div>
-            <div class="text-muted small">{{ quotation.customer.phone|default:"No phone specified" }}</div>
-            <div class="text-muted small">{{ quotation.customer.address|default:"" }}</div>
+            <div class="small text-muted text-uppercase fw-semibold mb-1">Prepared for</div>
+            <div class="fw-bold">{{ quotation.customer.company_name }}</div>
+            <div class="small text-muted">{{ quotation.customer.user.get_full_name }} &middot; {{ quotation.customer.contact_email }}</div>
+            <div class="small text-muted">{{ quotation.customer.phone|default:"" }}</div>
+            <div class="small text-muted">{{ quotation.customer.address|linebreaksbr }}</div>
           </div>
           <div class="col-sm-6">
-            <div class="text-muted small">Quotation Template</div>
-            <div class="fw-semibold">
-              {% if quotation.template %}
-                <span class="badge bg-light text-primary border">{{ quotation.template.name }}</span>
-                <span class="text-muted small d-block">Plan: {{ quotation.template.plan.name }}</span>
-              {% else %}
-                <span class="text-muted">Standard Direct Quote</span>
-              {% endif %}
-            </div>
-            <div class="mt-2 text-muted small">Created By: <strong>{{ quotation.created_by.get_full_name|default:quotation.created_by.email|default:"Staff" }}</strong></div>
+            <div class="small text-muted text-uppercase fw-semibold mb-1">Plan &amp; terms</div>
+            <div class="fw-bold">{{ quotation.plan.name|default:"No plan assigned" }}</div>
+            {% if quotation.plan %}<div class="small text-muted">${{ quotation.plan.price|floatformat:2|intcomma }} per {{ quotation.plan.get_billing_interval_display|lower }} &middot; minimum {{ quotation.plan.minimum_quantity }}</div>{% endif %}
+            <div class="small text-muted mt-1">Payment terms: <strong>{{ quotation.get_payment_terms_display }}</strong></div>
+            {% if quotation.template %}<div class="small text-muted">Template: {{ quotation.template.name }}</div>{% endif %}
+            {% if quotation.created_by %}<div class="small text-muted">Prepared by {{ quotation.created_by.get_full_name|default:quotation.created_by.username }}</div>{% endif %}
           </div>
-
-          <div class="col-12"><hr class="my-2"></div>
-
-          <div class="col-sm-4">
-            <div class="text-muted small">Issue Date</div>
-            <div class="fw-semibold">{{ quotation.issue_date|date:"F d, Y" }}</div>
-          </div>
-          <div class="col-sm-4">
-            <div class="text-muted small">Expiry Date</div>
-            <div class="fw-semibold {% if quotation.is_expired %}text-danger{% endif %}">
-              {{ quotation.expiry_date|date:"F d, Y" }}
-              {% if quotation.is_expired %}
-                <span class="badge bg-danger ms-1">Expired</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="col-sm-4">
-            <div class="text-muted small">Payment Terms</div>
-            <div class="fw-semibold">{{ quotation.get_payment_terms_display }}</div>
-          </div>
-
-          {% if quotation.notes %}
-            <div class="col-12">
-              <div class="text-muted small">Special Notes / Terms</div>
-              <div class="p-2 bg-light rounded text-muted small">{{ quotation.notes }}</div>
-            </div>
-          {% endif %}
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Pricing Overview Card -->
   <div class="col-lg-4">
-    <div class="card h-100 border-0 shadow-sm bg-light">
-      <div class="card-header bg-transparent py-3 border-bottom">
-        <h5 class="card-title mb-0 fw-semibold">Financial Summary</h5>
-      </div>
-      <div class="card-body d-flex flex-column justify-content-between">
-        <div>
-          <div class="d-flex justify-content-between py-2 border-bottom">
-            <span class="text-muted">Subtotal (Untaxed)</span>
-            <span class="fw-semibold">${{ quotation.subtotal }}</span>
-          </div>
-          <div class="d-flex justify-content-between py-2 border-bottom">
-            <span class="text-muted">Taxes (Estimated)</span>
-            <span class="fw-semibold">${{ quotation.tax_amount }}</span>
-          </div>
-          <div class="d-flex justify-content-between py-3 border-bottom">
-            <span class="fs-5 fw-bold text-dark">Total Amount</span>
-            <span class="fs-4 fw-bold text-primary">${{ quotation.total_amount }}</span>
-          </div>
-        </div>
-
-        <div class="mt-4 p-3 bg-white rounded border">
-          <div class="small fw-semibold text-secondary mb-1"><i class="bi bi-info-circle me-1"></i> Next Step:</div>
-          <div class="small text-muted">
-            {% if quotation.status == 'DRAFT' %}
-              Review lines and click <strong>Send to Customer</strong> or <strong>Confirm Quotation</strong>.
-            {% elif quotation.status == 'QUOTATION' %}
-              Awaiting customer approval. Once agreed, click <strong>Confirm Quotation</strong>.
-            {% elif quotation.status == 'CONFIRMED' %}
-              Confirmed! Click <strong>Convert to Active Subscription</strong> to launch the recurring lifecycle.
-            {% elif quotation.status == 'CONVERTED' %}
-              Converted into an active subscription record. Recurring billing and payments will trigger automatically.
-            {% endif %}
-          </div>
-        </div>
+    <div class="card h-100">
+      <div class="card-header">Totals</div>
+      <div class="card-body detail-list">
+        <div class="row-item"><span>Subtotal</span><span>${{ quotation.subtotal|floatformat:2|intcomma }}</span></div>
+        <div class="row-item"><span>Tax</span><span>${{ quotation.tax_amount|floatformat:2|intcomma }}</span></div>
+        <div class="row-item"><span>Total</span><span class="fs-4 text-primary">${{ quotation.total_amount|floatformat:2|intcomma }}</span></div>
+        <div class="row-item"><span>Valid until</span><span>{{ quotation.expiry_date|date:"M d, Y" }}</span></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Quotation Lines Itemized Table -->
-<div class="card border-0 shadow-sm">
-  <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-    <h5 class="card-title mb-0 fw-semibold">Quotation Product Lines</h5>
-    <span class="badge bg-secondary">{{ lines|length }} Item(s)</span>
-  </div>
+<div class="card">
+  <div class="card-header">Product lines</div>
   <div class="table-responsive">
-    <table class="table align-middle mb-0">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Product</th>
-          <th>Variant / Edition</th>
-          <th class="text-center">Quantity</th>
-          <th class="text-end">Unit Price</th>
-          <th class="text-end">Tax Rate</th>
-          <th class="text-end">Line Total</th>
-        </tr>
-      </thead>
+    <table class="table">
+      <thead><tr><th>#</th><th>Product</th><th>Variant</th><th class="text-center">Qty</th><th class="num">Unit price</th><th class="num">Tax</th><th class="num">Amount</th></tr></thead>
       <tbody>
         {% for line in lines %}
           <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>
-              <div class="fw-bold">{{ line.product.name }}</div>
-              <small class="text-muted">{{ line.product.get_product_type_display }}</small>
-            </td>
-            <td>
-              {% if line.variant %}
-                <span class="badge bg-info-subtle text-info border">
-                  {{ line.variant.attribute_name }}: {{ line.variant.attribute_value }} (+${{ line.variant.price_extra }})
-                </span>
-              {% else %}
-                <span class="text-muted small">Standard Base</span>
-              {% endif %}
-            </td>
-            <td class="text-center fw-semibold">{{ line.quantity }}</td>
-            <td class="text-end">${{ line.unit_price }}</td>
-            <td class="text-end">{{ line.tax_rate }}%</td>
-            <td class="text-end fw-bold text-dark">${{ line.amount }}</td>
+            <td class="text-muted">{{ forloop.counter }}</td>
+            <td><div class="fw-semibold">{{ line.product.name }}</div><div class="small text-muted">{{ line.product.get_product_type_display }}</div></td>
+            <td>{% if line.variant %}<span class="badge bg-info-subtle text-info border">{{ line.variant.attribute_name }}: {{ line.variant.attribute_value }} (+${{ line.variant.price_extra }})</span>{% else %}<span class="text-muted small">Standard</span>{% endif %}</td>
+            <td class="text-center">{{ line.quantity }}</td>
+            <td class="num">${{ line.unit_price|floatformat:2|intcomma }}</td>
+            <td class="num">{{ line.tax_rate }}%</td>
+            <td class="num fw-semibold">${{ line.amount|floatformat:2|intcomma }}</td>
           </tr>
         {% empty %}
-          <tr>
-            <td colspan="7" class="text-center py-4 text-muted">No product lines added to this quotation.</td>
-          </tr>
+          <tr><td colspan="7" class="text-center text-muted py-4">No lines on this quotation.</td></tr>
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr class="table-light">
-          <td colspan="6" class="text-end fw-bold">Subtotal:</td>
-          <td class="text-end fw-bold">${{ quotation.subtotal }}</td>
-        </tr>
-        <tr class="table-light">
-          <td colspan="6" class="text-end fw-bold">Taxes:</td>
-          <td class="text-end fw-bold">${{ quotation.tax_amount }}</td>
-        </tr>
-        <tr class="table-light">
-          <td colspan="6" class="text-end fw-bold fs-6">Grand Total:</td>
-          <td class="text-end fw-bold fs-6 text-primary">${{ quotation.total_amount }}</td>
-        </tr>
+        <tr class="table-light"><td colspan="6" class="text-end">Subtotal</td><td class="num">${{ quotation.subtotal|floatformat:2|intcomma }}</td></tr>
+        <tr class="table-light"><td colspan="6" class="text-end">Tax</td><td class="num">${{ quotation.tax_amount|floatformat:2|intcomma }}</td></tr>
+        <tr class="table-light"><td colspan="6" class="text-end fw-bold">Total</td><td class="num fw-bold">${{ quotation.total_amount|floatformat:2|intcomma }}</td></tr>
       </tfoot>
     </table>
   </div>

@@ -1,0 +1,55 @@
+{% with path=request.path %}
+<aside class="sidebar">
+  <a class="sidebar-brand" href="{% url 'home' %}">
+    <span class="logo"><i class="bi bi-arrow-repeat"></i></span>
+    <span>Brightloop<small>Subscription Management</small></span>
+  </a>
+  {% if request.user.is_staff_role %}
+    <div class="sidebar-section">Overview</div>
+    <ul class="sidebar-nav">
+      <li><a class="{% if path == '/dashboard/' %}active{% endif %}" href="{% url 'dashboard:index' %}"><i class="bi bi-speedometer2"></i>Dashboard</a></li>
+    </ul>
+    <div class="sidebar-section">Sales</div>
+    <ul class="sidebar-nav">
+      <li><a class="{% if '/quotations/' in path and '/templates' not in path %}active{% endif %}" href="{% url 'quotations:list' %}"><i class="bi bi-file-earmark-text"></i>Quotations</a></li>
+      <li><a class="{% if '/quotations/templates' in path %}active{% endif %}" href="{% url 'quotations:template_list' %}"><i class="bi bi-layout-text-window-reverse"></i>Quote Templates</a></li>
+      <li><a class="{% if '/subscriptions/' in path %}active{% endif %}" href="{% url 'subscriptions:list' %}"><i class="bi bi-card-checklist"></i>Subscriptions</a></li>
+    </ul>
+    <div class="sidebar-section">Billing</div>
+    <ul class="sidebar-nav">
+      <li><a class="{% if '/invoicing/' in path and '/taxes' not in path and 'billing-run' not in path %}active{% endif %}" href="{% url 'invoicing:invoice_list' %}"><i class="bi bi-receipt"></i>Invoices</a></li>
+      <li><a class="{% if 'billing-run' in path %}active{% endif %}" href="{% url 'invoicing:billing_run' %}"><i class="bi bi-lightning-charge"></i>Billing Run</a></li>
+      <li><a class="{% if path == '/payments/' or '/payments/record' in path %}active{% endif %}" href="{% url 'payments:list' %}"><i class="bi bi-cash-coin"></i>Payments</a></li>
+    </ul>
+    {% if request.user.is_admin_role %}
+      <div class="sidebar-section">Catalog &amp; Rules</div>
+      <ul class="sidebar-nav">
+        <li><a class="{% if '/products/' in path %}active{% endif %}" href="{% url 'products:list' %}"><i class="bi bi-box-seam"></i>Products</a></li>
+        <li><a class="{% if path|slice:':7' == '/plans/' %}active{% endif %}" href="{% url 'plans:list' %}"><i class="bi bi-collection"></i>Plans</a></li>
+        <li><a class="{% if '/discounts/' in path %}active{% endif %}" href="{% url 'discounts:discount_list' %}"><i class="bi bi-tag"></i>Discounts</a></li>
+        <li><a class="{% if '/taxes' in path %}active{% endif %}" href="{% url 'invoicing:tax_list' %}"><i class="bi bi-percent"></i>Taxes</a></li>
+      </ul>
+      <div class="sidebar-section">Administration</div>
+      <ul class="sidebar-nav">
+        <li><a class="{% if '/accounts/staff/' in path %}active{% endif %}" href="{% url 'accounts:staff_list' %}"><i class="bi bi-person-badge"></i>Team Members</a></li>
+      </ul>
+    {% endif %}
+  {% else %}
+    <div class="sidebar-section">My Account</div>
+    <ul class="sidebar-nav">
+      <li><a class="{% if '/subscriptions/' in path %}active{% endif %}" href="{% url 'subscriptions:list' %}"><i class="bi bi-card-checklist"></i>My Subscriptions</a></li>
+      <li><a class="{% if '/invoicing/' in path %}active{% endif %}" href="{% url 'invoicing:invoice_list' %}"><i class="bi bi-receipt"></i>My Invoices</a></li>
+      <li><a class="{% if '/accounts/profile/' in path %}active{% endif %}" href="{% url 'accounts:profile' %}"><i class="bi bi-person"></i>Profile</a></li>
+    </ul>
+  {% endif %}
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="avatar">{{ request.user.display_name|slice:":1"|upper }}</div>
+      <div>
+        <div class="name">{{ request.user.display_name|truncatechars:22 }}</div>
+        <div class="role">{{ request.user.get_role_display }}</div>
+      </div>
+    </div>
+  </div>
+</aside>
+{% endwith %}

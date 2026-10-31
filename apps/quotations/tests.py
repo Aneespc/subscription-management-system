@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
 from apps.accounts.models import User, CustomerProfile
-from apps.products.models import Product, ProductVariant
+from apps.products.models import Product, ProductVariant, Tax
 from apps.plans.models import Plan
 from apps.quotations.models import Quotation, QuotationLine, QuotationTemplate, QuotationTemplateLine
 from apps.quotations.services import QuotationService
@@ -15,7 +15,8 @@ class QuotationTests(TestCase):
         self.user = User.objects.create_user(username="rep1", email="rep@test.com", password="Password123!")
         self.customer = CustomerProfile.objects.create(user=self.user, company_name="Test Enterprise")
         self.plan = Plan.objects.create(name="Test Monthly Plan", price=Decimal("100.00"), billing_interval="MONTHLY", minimum_quantity=2)
-        self.product = Product.objects.create(name="ERP Pro", sales_price=Decimal("500.00"), product_type="SOFTWARE")
+        self.tax = Tax.objects.create(name="Sales Tax", rate=Decimal("10.00"))
+        self.product = Product.objects.create(name="ERP Pro", sales_price=Decimal("500.00"), product_type="SOFTWARE", tax=self.tax)
         self.variant = ProductVariant.objects.create(product=self.product, attribute_name="Brand", attribute_value="Odoo", price_extra=Decimal("560.00"))
 
     def test_quotation_creation_and_recalculation(self):
@@ -30,9 +31,9 @@ class QuotationTests(TestCase):
             product=self.product,
             variant=self.variant,
             quantity=2,
-            unit_price=Decimal("1060.00"),  # 500 + 560
-            tax_rate=Decimal("10.00")
         )
+        self.assertEqual(line.unit_price, Decimal("1060.00"))
+        self.assertEqual(line.tax_rate, Decimal("10.00"))
         QuotationService.recalculate_totals(quote)
         quote.refresh_from_db()
 
@@ -50,10 +51,14 @@ class QuotationTests(TestCase):
 
         quote = QuotationService.create_from_template(template, self.customer)
         self.assertEqual(quote.lines.count(), 1)
+        self.assertEqual(quote.lines.first().unit_price, Decimal("1060.00"))
+        self.assertEqual(quote.total_amount, Decimal("3498.00"))
         self.assertEqual(quote.template, template)
         self.assertEqual(quote.expiry_date, quote.issue_date + timedelta(days=15))
 
-        # Confirm and convert
+      
+        with self.assertRaises(ValueError):
+            QuotationService.convert_to_subscription(quote)
         QuotationService.confirm_quotation(quote)
         self.assertEqual(quote.status, Quotation.Status.CONFIRMED)
 

@@ -58,6 +58,28 @@ class PaymentServiceTests(TestCase):
         with self.assertRaises(PaymentError):
             self.pay("100")
 
+    def test_cancel_blocked_after_payment(self):
+        from django.core.exceptions import ValidationError
+        from apps.invoicing.services import InvoiceService
+
+        self.pay("100")
+        with self.assertRaises(ValidationError):
+            InvoiceService.cancel(self.invoice)
+
+    def test_record_page_requires_staff(self):
+        from django.urls import reverse
+
+        self.client.force_login(self.customer.user)
+        self.assertEqual(self.client.get(reverse("payments:record", args=[self.invoice.pk])).status_code, 403)
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("payments:record", args=[self.invoice.pk]),
+            {"amount": "1000.00", "payment_method": "CARD", "payment_date": "2026-10-31T10:00", "notes": ""},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+
     def test_overdue_detection(self):
         self.invoice.due_date = date.today() - timedelta(days=1)
         self.invoice.save()

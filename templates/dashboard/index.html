@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Dashboard{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Finance overview</h1><p>Active subscriptions, revenue, payments and overdue invoices in one place.</p></div>
+  <a href="{% url 'invoicing:billing_run' %}" class="btn btn-primary"><i class="bi bi-lightning-charge me-1"></i>Billing run{% if summary.due_for_billing %} <span class="badge bg-light text-dark ms-1">{{ summary.due_for_billing }} due</span>{% endif %}</a>
+</div>
+
+<div class="card mb-4"><div class="card-body py-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-2"><label class="form-label">From</label>{{ filter_form.date_from }}</div>
+    <div class="col-md-2"><label class="form-label">To</label>{{ filter_form.date_to }}</div>
+    <div class="col-md-3"><label class="form-label">Payment method</label>{{ filter_form.method }}</div>
+    <div class="col-md-3"><label class="form-label">Customer</label>{{ filter_form.customer }}</div>
+    <div class="col-md-2 d-flex gap-2"><button class="btn btn-dark w-100" type="submit">Apply</button>{% if has_filters %}<a href="{% url 'dashboard:index' %}" class="btn btn-light">Reset</a>{% endif %}</div>
+  </form>
+</div></div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card success"><div class="icon"><i class="bi bi-card-checklist"></i></div><div class="label">Active subscriptions</div><div class="value">{{ summary.active_subscriptions|intcomma }}</div><div class="hint">{{ summary.paused_subscriptions }} paused · {{ summary.total_subscriptions|intcomma }} total</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card primary"><div class="icon"><i class="bi bi-cash-stack"></i></div><div class="label">Revenue received</div><div class="value">${{ summary.revenue_received|floatformat:2|intcomma }}</div><div class="hint">{{ summary.payments_count }} payment{{ summary.payments_count|pluralize }} in range</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card warning"><div class="icon"><i class="bi bi-wallet2"></i></div><div class="label">Still owed</div><div class="value">${{ summary.outstanding_amount|floatformat:2|intcomma }}</div><div class="hint">{{ summary.outstanding_invoices }} confirmed invoice{{ summary.outstanding_invoices|pluralize }} unpaid</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card danger"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="label">Overdue invoices</div><div class="value">{{ summary.overdue_invoices }}</div><div class="hint">${{ summary.overdue_amount|floatformat:2|intcomma }} past due</div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card stat-card dark"><div class="label">Invoices in range</div><div class="value">{{ summary.total_invoices|intcomma }}</div><div class="hint">{{ summary.draft_invoices }} draft awaiting confirmation</div></div></div>
+  <div class="col-md-4"><div class="card stat-card success"><div class="label">Paid invoices in range</div><div class="value">${{ summary.paid_amount|floatformat:2|intcomma }}</div></div></div>
+  <div class="col-md-4"><div class="card stat-card info"><div class="label">Customers</div><div class="value">{{ summary.total_customers|intcomma }}</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">Overdue invoices <a class="small fw-normal" href="{% url 'invoicing:invoice_list' %}?overdue_only=on">View all</a></div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Invoice</th><th>Customer</th><th>Due</th><th class="num">Days late</th><th class="num">Outstanding</th><th></th></tr></thead>
+          <tbody>
+            {% for inv in overdue_invoices %}
+              <tr>
+                <td><a href="{% url 'invoicing:invoice_detail' inv.pk %}" class="fw-semibold">{{ inv.invoice_number }}</a></td>
+                <td>{{ inv.customer.company_name }}</td>
+                <td>{{ inv.due_date|date:"M d, Y" }}</td>
+                <td class="num text-danger fw-semibold">{{ inv.days_late }}</td>
+                <td class="num fw-semibold">${{ inv.outstanding|floatformat:2|intcomma }}</td>
+                <td class="text-end"><a href="{% url 'payments:record' inv.pk %}" class="btn btn-sm btn-outline-primary">Record payment</a></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6"><div class="empty-state"><i class="bi bi-emoji-smile"></i>No overdue invoices.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Payments by method</div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead><tr><th>Method</th><th class="num">Payments</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            {% for row in payments_by_method %}
+              <tr><td>{{ row.label }}</td><td class="num">{{ row.count }}</td><td class="num fw-semibold">${{ row.total|floatformat:2|intcomma }}</td></tr>
+            {% empty %}
+              <tr><td colspan="3" class="text-muted small text-center py-4">No payments in this range.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">Active subscriptions <a class="small fw-normal" href="{% url 'subscriptions:list' %}?status=ACTIVE">View all</a></div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Subscription</th><th>Customer</th><th>Plan</th><th>Next billing</th></tr></thead>
+          <tbody>
+            {% for sub in active_subscriptions %}
+              <tr>
+                <td><a href="{% url 'subscriptions:detail' sub.pk %}" class="fw-semibold">{{ sub.subscription_number }}</a></td>
+                <td>{{ sub.customer.company_name }}</td>
+                <td>{{ sub.plan.name }}</td>
+                <td class="{% if sub.next_billing_date and sub.next_billing_date <= today %}text-danger fw-semibold{% endif %}">{{ sub.next_billing_date|date:"M d, Y"|default:"—" }}</td>
+              </tr>
+            {% empty %}<tr><td colspan="4" class="text-muted small text-center py-4">No active subscriptions.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">Payments <a class="small fw-normal" href="{% url 'payments:list' %}">View all</a></div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Customer</th><th>Invoice</th><th>Method</th><th>Date</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            {% for p in payments %}
+              <tr>
+                <td>{{ p.invoice.customer.company_name }}</td>
+                <td><a href="{% url 'invoicing:invoice_detail' p.invoice_id %}">{{ p.invoice.invoice_number }}</a></td>
+                <td>{{ p.get_payment_method_display }}</td>
+                <td>{{ p.payment_date|date:"M d, Y" }}</td>
+                <td class="num fw-semibold text-success">${{ p.amount|floatformat:2|intcomma }}</td>
+              </tr>
+            {% empty %}<tr><td colspan="5" class="text-muted small text-center py-4">No payments in this range.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

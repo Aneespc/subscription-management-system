@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Billing run{% endblock %}
+{% block header_title %}Billing run{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Billing run</h1><p>Create invoices for every active subscription whose billing date is on or before {{ today|date:"F d, Y" }}. Nothing is billed twice.</p></div>
+  <form method="post" data-confirm="Generate invoices for {{ due_count }} subscription(s) now?">
+    {% csrf_token %}
+    <button class="btn btn-primary btn-lg" type="submit" {% if not due_count %}disabled{% endif %}><i class="bi bi-lightning-charge me-1"></i>Run billing for {{ due_count }} subscription{{ due_count|pluralize }}</button>
+  </form>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Due for billing</div>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Subscription</th><th>Customer</th><th>Plan</th><th>Billing date</th><th>Terms</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            {% for sub in due_subscriptions %}
+              <tr>
+                <td><a href="{% url 'subscriptions:detail' sub.pk %}" class="fw-semibold">{{ sub.subscription_number }}</a></td>
+                <td>{{ sub.customer.company_name }}</td>
+                <td>{{ sub.plan.name }} <span class="badge bg-light text-dark border">{{ sub.plan.get_billing_interval_display }}</span></td>
+                <td>{{ sub.next_billing_date|date:"M d, Y" }}{% if sub.next_billing_date < today %}<span class="badge bg-danger-subtle text-danger ms-1">late</span>{% endif %}</td>
+                <td class="small">{{ sub.get_payment_terms_display }}</td>
+                <td class="num fw-semibold">${{ sub.total_amount|floatformat:2|intcomma }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6"><div class="empty-state"><i class="bi bi-check2-circle"></i>Nothing is due. Every active subscription is billed up to date.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">What happens</div>
+      <div class="card-body">
+        <ul class="timeline">
+          <li><span class="dot bg-primary"></span><div><strong>Expired plans close</strong><div class="small text-muted">Subscriptions past expiry on auto-close plans are closed first.</div></div></li>
+          <li><span class="dot bg-primary"></span><div><strong>One draft invoice per period</strong><div class="small text-muted">Lines, taxes and totals copied from the subscription. A period already billed is skipped.</div></div></li>
+          <li><span class="dot bg-primary"></span><div><strong>Discounts apply themselves</strong><div class="small text-muted">The best valid discount is applied and its usage counted.</div></div></li>
+          <li><span class="dot bg-primary"></span><div><strong>Billing date advances</strong><div class="small text-muted">By the plan interval, with correct month-end handling.</div></div></li>
+        </ul>
+        <div class="small text-muted mt-3">Also available as <code>python manage.py generate_invoices</code> for a scheduled job.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

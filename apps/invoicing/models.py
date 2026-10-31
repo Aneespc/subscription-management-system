@@ -12,39 +12,6 @@ def quantize_currency(amount):
     return Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-class Tax(models.Model):
-    name = models.CharField(max_length=100)
-    rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        help_text="Tax rate percentage (e.g. 18.00 for 18%)",
-    )
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Whether this tax rate is active for new calculations",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["name"]
-        verbose_name_plural = "Taxes"
-        constraints = [
-            models.CheckConstraint(
-                condition=Q(rate__gte=Decimal("0.00")),
-                name="tax_rate_gte_zero",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.name} ({self.rate}%)"
-
-    def clean(self):
-        super().clean()
-        if self.rate is not None and self.rate < Decimal("0.00"):
-            raise ValidationError({"rate": "Tax rate cannot be negative."})
-
-
 class InvoiceSequence(models.Model):
     """
     Thread-safe and process-safe sequence generator for invoice numbers.
@@ -169,7 +136,6 @@ class Invoice(models.Model):
         if not self.invoice_number:
             year = self.issue_date.year if self.issue_date else timezone.now().year
             self.invoice_number = InvoiceSequence.get_next_number(year)
-        # Always ensure currency precision
         self.subtotal = quantize_currency(self.subtotal)
         self.discount_amount = quantize_currency(self.discount_amount)
         self.tax_amount = quantize_currency(self.tax_amount)
@@ -223,7 +189,7 @@ class InvoiceLine(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     tax = models.ForeignKey(
-        Tax,
+        "products.Tax",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

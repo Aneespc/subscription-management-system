@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>{{ title }}</h1><p>Name, type, prices and notes. Add variants such as brand or edition with their price difference.</p></div>
+  <a href="{% url 'products:list' %}" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back to products</a>
+</div>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header">Product details</div>
+        <div class="card-body">
+          {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors.0 }}</div>{% endif %}
+          <div class="row g-3">
+            <div class="col-md-8"><label class="form-label required">Name</label>{{ form.name }}{% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>{% endif %}</div>
+            <div class="col-md-4"><label class="form-label">Type</label>{{ form.product_type }}</div>
+            <div class="col-md-4"><label class="form-label required">Sales price</label>{{ form.sales_price }}{% if form.sales_price.errors %}<div class="text-danger small mt-1">{{ form.sales_price.errors.0 }}</div>{% endif %}</div>
+            <div class="col-md-4"><label class="form-label">Cost price</label>{{ form.cost_price }}{% if form.cost_price.errors %}<div class="text-danger small mt-1">{{ form.cost_price.errors.0 }}</div>{% endif %}</div>
+            <div class="col-md-4"><label class="form-label">Tax rule</label>{{ form.tax }}<div class="form-text">Applied automatically to every invoice line for this product.</div></div>
+            <div class="col-12"><label class="form-label">Notes</label>{{ form.notes }}</div>
+            <div class="col-12"><div class="form-check form-switch">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">Available for new plans and quotes</label></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">Variants <button type="button" class="btn btn-sm btn-light" id="add-row"><i class="bi bi-plus-lg me-1"></i>Add variant</button></div>
+        <div class="card-body">
+          {{ formset.management_form }}
+          {% if formset.non_form_errors %}<div class="alert alert-danger py-2">{{ formset.non_form_errors.0 }}</div>{% endif %}
+          <p class="small text-muted">Example: attribute <strong>Brand</strong>, value <strong>Odoo</strong>, extra <strong>560.00</strong>.</p>
+          <div id="formset-rows">
+            {% for line in formset %}
+              <div class="formset-row border rounded-3 p-3 mb-2 {% if line.DELETE.value %}d-none{% endif %}">
+                {{ line.id }}
+                <div class="row g-2 align-items-end">
+                  <div class="col-4"><label class="form-label">Attribute</label>{{ line.attribute_name }}</div>
+                  <div class="col-4"><label class="form-label">Value</label>{{ line.attribute_value }}</div>
+                  <div class="col-3"><label class="form-label">Extra</label>{{ line.price_extra }}</div>
+                  <div class="col-1 text-end"><div class="d-none">{{ line.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row" title="Remove"><i class="bi bi-trash text-danger"></i></button></div>
+                </div>
+                {% if line.errors %}<div class="text-danger small mt-2">{{ line.errors|striptags }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+          <template id="empty-row-template">
+            <div class="formset-row border rounded-3 p-3 mb-2">
+              {{ formset.empty_form.id }}
+              <div class="row g-2 align-items-end">
+                <div class="col-4"><label class="form-label">Attribute</label>{{ formset.empty_form.attribute_name }}</div>
+                <div class="col-4"><label class="form-label">Value</label>{{ formset.empty_form.attribute_value }}</div>
+                <div class="col-3"><label class="form-label">Extra</label>{{ formset.empty_form.price_extra }}</div>
+                <div class="col-1 text-end"><div class="d-none">{{ formset.empty_form.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row" title="Remove"><i class="bi bi-trash text-danger"></i></button></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <a href="{% url 'products:list' %}" class="btn btn-light">Cancel</a>
+    <button class="btn btn-primary px-4" type="submit"><i class="bi bi-check2 me-1"></i>Save product</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 from apps.accounts.models import User, CustomerProfile
@@ -20,7 +21,7 @@ class SubscriptionTests(TestCase):
             minimum_quantity=3,
             allow_pause=True,
             allow_renewal=True,
-            allow_early_close=False,  # Disallows early close
+            allow_early_close=False,
             auto_close=True
         )
         self.product = Product.objects.create(name="App Suite", sales_price=Decimal("100.00"))
@@ -34,11 +35,11 @@ class SubscriptionTests(TestCase):
         )
         SubscriptionLine.objects.create(subscription=sub, product=self.product, quantity=1, unit_price=Decimal("100.00"), amount=Decimal("100.00"))
 
-        # Should fail because min_quantity is 3 and quantity is 1
+      
         with self.assertRaises(ValueError):
             self.service.activate(sub)
 
-        # Now add 2 more seats to reach 3
+      
         SubscriptionLine.objects.create(subscription=sub, product=self.product, quantity=2, unit_price=Decimal("100.00"), amount=Decimal("200.00"))
         self.service.activate(sub)
         sub.refresh_from_db()
@@ -67,14 +68,31 @@ class SubscriptionTests(TestCase):
             status=Subscription.Status.ACTIVE,
             expiry_date=today + timedelta(days=90)
         )
-        # Because plan.allow_early_close is False, early closing should fail
+      
         with self.assertRaises(ValueError):
             self.service.close(sub)
 
-        # Force closing works
+      
         self.service.close(sub, force=True)
         sub.refresh_from_db()
         self.assertEqual(sub.status, Subscription.Status.CLOSED)
+
+    def test_number_is_unique_and_sequential(self):
+        a = Subscription.objects.create(customer=self.customer, plan=self.plan)
+        b = Subscription.objects.create(customer=self.customer, plan=self.plan)
+        self.assertNotEqual(a.subscription_number, b.subscription_number)
+        self.assertTrue(a.subscription_number.startswith("SUB-"))
+
+    def test_customer_cannot_activate_or_edit(self):
+        sub = Subscription.objects.create(customer=self.customer, plan=self.plan, status=Subscription.Status.CONFIRMED)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse("subscriptions:detail", args=[sub.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("subscriptions:edit", args=[sub.pk])).status_code, 403)
+        self.assertEqual(self.client.post(reverse("subscriptions:action", args=[sub.pk, "activate"])).status_code, 403)
+        other_user = User.objects.create_user(username="other", email="other@test.com", password="Password123!")
+        other = CustomerProfile.objects.create(user=other_user, company_name="Other Co")
+        other_sub = Subscription.objects.create(customer=other, plan=self.plan)
+        self.assertEqual(self.client.get(reverse("subscriptions:detail", args=[other_sub.pk])).status_code, 404)
 
     def test_renew(self):
         sub = Subscription.objects.create(

@@ -1,39 +1,35 @@
-"""
-Django settings for Subscription Management System.
-"""
-
 from pathlib import Path
 import os
+
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
-    "django-insecure-tx+5kh4qrh9)cr!k5au7&-1(3lxbt0^q2sr_3x9*h%_5ogps=b"
+    "django-insecure-tx+5kh4qrh9)cr!k5au7&-1(3lxbt0^q2sr_3x9*h%_5ogps=b",
 )
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
-# Application definition
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Other members' apps (minimal stubs for Member 3 branch)
+    "django.contrib.humanize",
     "apps.accounts",
     "apps.products",
     "apps.plans",
+    "apps.quotations",
     "apps.subscriptions",
-    "apps.payments",
-    # Member 3 Apps
     "apps.discounts",
     "apps.invoicing",
+    "apps.payments",
+    "apps.dashboard",
 ]
 
 MIDDLEWARE = [
@@ -67,7 +63,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-# Database: Uses PostgreSQL if DATABASE_URL is set, otherwise SQLite for local development & testing.
 DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
@@ -75,23 +70,17 @@ DATABASES = {
     )
 }
 
-# Custom user model
 AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "apps.accounts.validators.PasswordComplexityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
 ]
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "accounts:login"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -100,16 +89,30 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-] if (BASE_DIR / "static").exists() else []
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Email backend: console/in-memory for development/tests
-EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-DEFAULT_FROM_EMAIL = "billing@brightloopsoftware.com"
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "billing@brightloopsoftware.com")
 
-LOGIN_URL = "/admin/login/"
-LOGIN_REDIRECT_URL = "/invoicing/invoices/"
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "brightloop",
+    }
+}
 
+MESSAGE_TAGS = {40: "danger"}
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SSL_REDIRECT", "False").lower() in ("true", "1", "yes")

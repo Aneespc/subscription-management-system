@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Add team member{% endblock %}
+{% block header_title %}Add team member{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="page-header">
+      <div><h1>New team member</h1><p>Staff handle day-to-day work. Admins control the whole system.</p></div>
+      <a href="{% url 'accounts:staff_list' %}" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors.0 }}</div>{% endif %}
+        <div class="row g-3">
+          {% for field in form %}
+            <div class="{% if field.name == 'email' %}col-12{% else %}col-md-6{% endif %}">
+              <label class="form-label required">{{ field.label }}</label>{{ field }}
+              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors.0 }}</div>{% endif %}
+              {% if field.name == 'password1' %}<div class="form-text">More than 8 characters with uppercase, lowercase and a special character.</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="{% url 'accounts:staff_list' %}" class="btn btn-light">Cancel</a>
+          <button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Add member</button>
+        </div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,4 +1,3 @@
-# TEMP STUB: Owned by Member 1 (accounts) - Minimal stub for Member 3 feature branch
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -10,12 +9,14 @@ class User(AbstractUser):
         STAFF = "STAFF", "Staff"
         CUSTOMER = "CUSTOMER", "Customer"
 
-    role = models.CharField(
-        max_length=20,
-        choices=Role.choices,
-        default=Role.CUSTOMER,
-        help_text="User role: ADMIN, STAFF, or CUSTOMER",
-    )
+    email = models.EmailField("email address", unique=True)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.CUSTOMER)
+
+    class Meta:
+        ordering = ["username"]
+
+    def __str__(self):
+        return self.get_full_name() or self.username
 
     @property
     def is_admin_role(self):
@@ -23,20 +24,34 @@ class User(AbstractUser):
 
     @property
     def is_staff_role(self):
-        return self.role in (self.Role.ADMIN, self.Role.STAFF) or self.is_staff
+        return self.role in (self.Role.ADMIN, self.Role.STAFF) or self.is_superuser
 
     @property
     def is_customer_role(self):
-        return self.role == self.Role.CUSTOMER
+        return self.role == self.Role.CUSTOMER and not self.is_superuser
+
+    @property
+    def display_name(self):
+        if self.is_customer_role:
+            profile = getattr(self, "customer_profile", None)
+            if profile and profile.company_name:
+                return profile.company_name
+        return self.get_full_name() or self.username
 
     def save(self, *args, **kwargs):
-        # Synchronize Django's built-in flags with the explicit role
+        if self.is_superuser:
+            self.role = self.Role.ADMIN
         if self.role == self.Role.ADMIN:
             self.is_staff = True
             self.is_superuser = True
         elif self.role == self.Role.STAFF:
             self.is_staff = True
             self.is_superuser = False
+        else:
+            self.is_staff = False
+            self.is_superuser = False
+        if self.email:
+            self.email = self.email.lower()
         super().save(*args, **kwargs)
 
 
@@ -46,14 +61,20 @@ class CustomerProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="customer_profile",
     )
-    company_name = models.CharField(max_length=255, blank=True)
+    company_name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=30, blank=True)
+    address = models.TextField(blank=True)
+    tax_number = models.CharField(max_length=50, blank=True)
     billing_email = models.EmailField(blank=True)
-    billing_address = models.TextField(blank=True)
-    tax_id = models.CharField(max_length=50, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        if self.company_name:
-            return f"{self.company_name} ({self.user.username})"
-        return self.user.get_full_name() or self.user.username
+    class Meta:
+        ordering = ["company_name"]
+        indexes = [models.Index(fields=["company_name"])]
 
+    def __str__(self):
+        return self.company_name or self.user.username
+
+    @property
+    def contact_email(self):
+        return self.billing_email or self.user.email

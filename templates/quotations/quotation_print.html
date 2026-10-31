@@ -38,7 +38,6 @@
 </div>
 
 <div class="invoice-card">
-  <!-- Header -->
   <div class="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
     <div>
       <h2 class="fw-bold text-primary mb-1">Brightloop Software</h2>
@@ -53,7 +52,6 @@
     </div>
   </div>
 
-  <!-- Meta Info -->
   <div class="row mb-4">
     <div class="col-6">
       <div class="text-muted small text-uppercase fw-semibold mb-1">Quotation For:</div>
@@ -90,7 +88,6 @@
     </div>
   </div>
 
-  <!-- Items Table -->
   <table class="table table-striped align-middle mb-4">
     <thead class="table-dark">
       <tr>
@@ -121,7 +118,6 @@
     </tbody>
   </table>
 
-  <!-- Totals -->
   <div class="row justify-content-end mb-4">
     <div class="col-5">
       <div class="d-flex justify-content-between py-1 border-bottom">
@@ -139,14 +135,7 @@
     </div>
   </div>
 
-  {% if quotation.notes %}
-    <div class="border p-3 rounded mb-4 bg-light">
-      <div class="fw-bold small mb-1">Notes & Payment Instructions:</div>
-      <div class="text-muted small">{{ quotation.notes }}</div>
-    </div>
-  {% endif %}
 
-  <!-- Signoff / Acceptance -->
   <div class="row pt-5 mt-4 border-top">
     <div class="col-6">
       <div class="small text-muted mb-4">Authorized Representative (Brightloop Software):</div>

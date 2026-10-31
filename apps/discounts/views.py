@@ -5,8 +5,8 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.discounts.forms import DiscountFilterForm, DiscountForm
-from apps.discounts.models import Discount, DiscountUsage
-from apps.invoicing.permissions import AdminRequiredMixin
+from apps.discounts.models import Discount
+from apps.accounts.mixins import AdminRequiredMixin
 
 
 class DiscountListView(AdminRequiredMixin, ListView):
@@ -61,23 +61,4 @@ class DiscountUpdateView(AdminRequiredMixin, UpdateView):
     def form_valid(self, form):
         messages.success(self.request, f"Discount '{form.cleaned_data['name']}' updated successfully.")
         return super().form_valid(form)
-
-
-class DiscountUsageHistoryView(AdminRequiredMixin, ListView):
-    model = DiscountUsage
-    template_name = "discounts/usage_history.html"
-    context_object_name = "usages"
-    paginate_by = 25
-
-    def get_queryset(self):
-        return (
-            DiscountUsage.objects.select_related(
-                "discount",
-                "customer",
-                "customer__user",
-                "invoice",
-                "subscription",
-            )
-            .order_by("-used_at")
-        )
 

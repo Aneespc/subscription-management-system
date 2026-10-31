@@ -1,37 +1,25 @@
-{% extends 'base.html' %}
-
-{% block title %}Register{% endblock %}
-
+{% extends "auth_base.html" %}
+{% block title %}Create account{% endblock %}
 {% block content %}
-
-<div class="auth-container">
-
-    <div class="auth-card">
-
-        <h1 class="auth-title">Create Account</h1>
-
-        <p class="auth-subtitle">
-            Register to get started
-        </p>
-
-        <form method="POST">
-            {% csrf_token %}
-
-            {{ form.as_p }}
-
-            <button type="submit" class="btn btn-primary">
-                Create Account
-            </button>
-        </form>
-
-        <p class="auth-footer">
-            Already have an account?
-            <a href="{% url 'accounts:login' %}"
-               class="auth-link">Login</a>
-        </p>
-
-    </div>
-
-</div>
-
+<h1>Create your account</h1>
+<p class="sub">Your email and a password are all you need.</p>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors.0 }}</div>{% endif %}
+  <div class="mb-3">
+    <label class="form-label required">Email</label>{{ form.email }}
+    {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>{% endif %}
+  </div>
+  <div class="mb-3">
+    <label class="form-label required">Password</label>{{ form.password1 }}
+    {% if form.password1.errors %}<div class="text-danger small mt-1">{{ form.password1.errors.0 }}</div>{% endif %}
+    <div class="form-text">More than 8 characters with an uppercase letter, a lowercase letter and a special character.</div>
+  </div>
+  <div class="mb-4">
+    <label class="form-label required">Confirm password</label>{{ form.password2 }}
+    {% if form.password2.errors %}<div class="text-danger small mt-1">{{ form.password2.errors.0 }}</div>{% endif %}
+  </div>
+  <button class="btn btn-primary w-100 btn-lg" type="submit">Create account</button>
+</form>
+<p class="text-center text-muted small mt-4 mb-0">Already have an account? <a href="{% url 'accounts:login' %}">Sign in</a></p>
 {% endblock %}

@@ -1,95 +1,66 @@
-{% extends 'base.html' %}
-
-{% block title %}{{ title }} - Brightloop Software{% endblock %}
-
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
 {% block content %}
-<div class="mb-4">
-  <div class="d-flex justify-content-between align-items-center">
-    <div>
-      <h2 class="h3 fw-bold mb-1">{{ title }}</h2>
-      <p class="text-muted mb-0">Define default plan, validity duration, and default bundled products.</p>
-    </div>
-    <a href="{% url 'quotations:template_list' %}" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i> Back to Templates
-    </a>
-  </div>
+<div class="page-header">
+  <div><h1>{{ title }}</h1><p>A reusable offer: the plan, the product lines and how many days the quotation stays valid.</p></div>
+  <a href="{% url 'quotations:template_list' %}" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back to templates</a>
 </div>
-
-<form method="post">
+{{ variant_map|json_script:"variant-map" }}
+<form method="post" novalidate>
   {% csrf_token %}
-
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 border-bottom">
-      <h5 class="card-title mb-0 fw-semibold">Template Configuration</h5>
-    </div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Template Name <span class="text-danger">*</span></label>
-          {{ form.name }}
-        </div>
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Associated Plan <span class="text-danger">*</span></label>
-          {{ form.plan }}
-        </div>
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Validity Duration (Days) <span class="text-danger">*</span></label>
-          {{ form.validity_days }}
-        </div>
-        <div class="col-md-6 d-flex align-items-center pt-4">
-          <div class="form-check form-switch fs-6">
-            {{ form.is_active }}
-            <label class="form-check-label fw-semibold ms-2">Active Template</label>
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-header">Template</div>
+        <div class="card-body">
+          {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors.0 }}</div>{% endif %}
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label required">Name</label>{{ form.name }}{% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>{% endif %}</div>
+            <div class="col-md-8"><label class="form-label required">Plan</label>{{ form.plan }}{% if form.plan.errors %}<div class="text-danger small mt-1">{{ form.plan.errors.0 }}</div>{% endif %}</div>
+            <div class="col-md-4"><label class="form-label required">Valid for (days)</label>{{ form.validity_days }}</div>
+            <div class="col-12"><label class="form-label">Description</label>{{ form.description }}</div>
+            <div class="col-12"><div class="form-check form-switch">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">Available to sales reps</label></div></div>
           </div>
         </div>
-        <div class="col-12">
-          <label class="form-label fw-semibold">Description</label>
-          {{ form.description }}
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">Product lines <button type="button" class="btn btn-sm btn-light" id="add-row"><i class="bi bi-plus-lg me-1"></i>Add line</button></div>
+        <div class="card-body p-0">
+          {{ formset.management_form }}
+          {% if formset.non_form_errors %}<div class="alert alert-danger m-3 py-2">{{ formset.non_form_errors.0 }}</div>{% endif %}
+          <div class="table-responsive">
+            <table class="table table-form">
+              <thead><tr><th style="width:42%">Product</th><th style="width:40%">Variant</th><th style="width:12%">Qty</th><th></th></tr></thead>
+              <tbody id="formset-rows">
+                {% for line in formset %}
+                  <tr class="formset-row {% if line.DELETE.value %}d-none{% endif %}">
+                    <td>{{ line.id }}{{ line.product }}{% if line.product.errors %}<div class="text-danger small">{{ line.product.errors.0 }}</div>{% endif %}</td>
+                    <td>{{ line.variant }}{% if line.variant.errors %}<div class="text-danger small">{{ line.variant.errors.0 }}</div>{% endif %}</td>
+                    <td>{{ line.quantity }}</td>
+                    <td class="text-end"><div class="d-none">{{ line.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row"><i class="bi bi-trash text-danger"></i></button></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <template id="empty-row-template">
+            <tr class="formset-row">
+              <td>{{ formset.empty_form.id }}{{ formset.empty_form.product }}</td>
+              <td>{{ formset.empty_form.variant }}</td>
+              <td>{{ formset.empty_form.quantity }}</td>
+              <td class="text-end"><div class="d-none">{{ formset.empty_form.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row"><i class="bi bi-trash text-danger"></i></button></td>
+            </tr>
+          </template>
         </div>
       </div>
     </div>
   </div>
-
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 border-bottom">
-      <h5 class="card-title mb-0 fw-semibold">Bundled Product Lines</h5>
-    </div>
-    <div class="card-body p-0">
-      {{ formset.management_form }}
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead>
-            <tr>
-              <th style="width: 45%;">Product</th>
-              <th style="width: 35%;">Variant</th>
-              <th style="width: 15%;">Quantity</th>
-              <th style="width: 5%;" class="text-center">Del</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for line_form in formset %}
-              <tr>
-                <td>{{ line_form.id }}{{ line_form.product }}</td>
-                <td>{{ line_form.variant }}</td>
-                <td>{{ line_form.quantity }}</td>
-                <td class="text-center">
-                  {% if line_form.instance.pk %}
-                    <div class="form-check d-inline-block">{{ line_form.DELETE }}</div>
-                  {% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="d-flex justify-content-end gap-2 mb-5">
-    <a href="{% url 'quotations:template_list' %}" class="btn btn-outline-secondary">Cancel</a>
-    <button type="submit" class="btn btn-primary px-4">
-      <i class="bi bi-check2-circle me-1"></i> Save Template
-    </button>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <a href="{% url 'quotations:template_list' %}" class="btn btn-light">Cancel</a>
+    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check2 me-1"></i>Save template</button>
   </div>
 </form>
 {% endblock %}

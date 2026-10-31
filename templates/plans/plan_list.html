@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Plans{% endblock %}
+{% block header_title %}Plans{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Plans</h1><p>Price, billing frequency, minimum quantity, availability window and lifecycle rules, decided plan by plan.</p></div>
+  <a href="{% url 'plans:create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New plan</a>
+</div>
+<div class="card mb-4"><div class="card-body py-3">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-md-5"><div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span><input type="text" name="q" class="form-control" placeholder="Search plan name..." value="{{ search_query }}"></div></div>
+    <div class="col-md-3"><select name="interval" class="form-select"><option value="">All intervals</option>{% for value, label in intervals %}<option value="{{ value }}" {% if selected_interval == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-md-2 d-flex gap-2"><button class="btn btn-dark w-100" type="submit">Filter</button><a href="{% url 'plans:list' %}" class="btn btn-light">Reset</a></div>
+  </form>
+</div></div>
+<div class="card"><div class="table-responsive">
+  <table class="table table-hover">
+    <thead><tr><th>Plan</th><th class="num">Price</th><th>Bills</th><th class="text-center">Min qty</th><th>Available</th><th>Rules</th><th class="text-center">Active subs</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+    <tbody>
+      {% for plan in plans %}
+        <tr>
+          <td><a href="{% url 'plans:edit' plan.pk %}" class="fw-semibold">{{ plan.name }}</a></td>
+          <td class="num fw-semibold">${{ plan.price|floatformat:2|intcomma }}</td>
+          <td><span class="badge bg-light text-dark border">{{ plan.get_billing_interval_display }}</span></td>
+          <td class="text-center">{{ plan.minimum_quantity }}</td>
+          <td class="small">{% if plan.available_from or plan.available_until %}{{ plan.available_from|date:"M d, Y"|default:"…" }} – {{ plan.available_until|date:"M d, Y"|default:"…" }}{% else %}<span class="text-muted">Always</span>{% endif %}</td>
+          <td class="small">
+            <span class="badge {% if plan.auto_close %}bg-info-subtle text-info{% else %}bg-light text-muted{% endif %} border" title="Auto-close at end">Auto-close</span>
+            <span class="badge {% if plan.allow_early_close %}bg-success-subtle text-success{% else %}bg-light text-muted{% endif %} border" title="Early close">Early close</span>
+            <span class="badge {% if plan.allow_pause %}bg-warning-subtle text-warning-emphasis{% else %}bg-light text-muted{% endif %} border" title="Pause">Pause</span>
+            <span class="badge {% if plan.allow_renewal %}bg-primary-subtle text-primary{% else %}bg-light text-muted{% endif %} border" title="Renew">Renew</span>
+          </td>
+          <td class="text-center"><span class="fw-semibold text-success">{{ plan.active_count }}</span> <span class="text-muted">/ {{ plan.subscription_count }}</span></td>
+          <td>{% if plan.is_active %}<span class="badge-status badge-active">Active</span>{% else %}<span class="badge-status badge-inactive">Inactive</span>{% endif %}</td>
+          <td class="text-end"><a href="{% url 'plans:edit' plan.pk %}" class="btn btn-sm btn-light"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9"><div class="empty-state"><i class="bi bi-collection"></i>No plans yet.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% include "components/pagination.html" %}
+{% endblock %}

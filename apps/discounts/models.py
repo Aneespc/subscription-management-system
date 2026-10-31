@@ -12,9 +12,8 @@ class Discount(models.Model):
         PERCENTAGE = "PERCENTAGE", "Percentage"
 
     class AppliesTo(models.TextChoices):
-        ALL = "ALL", "All Items"
         PRODUCTS = "PRODUCTS", "Specific Products"
-        SUBSCRIPTIONS = "SUBSCRIPTIONS", "Subscriptions"
+        SUBSCRIPTIONS = "SUBSCRIPTIONS", "Whole Subscription"
 
     name = models.CharField(max_length=255)
     discount_type = models.CharField(
@@ -53,8 +52,8 @@ class Discount(models.Model):
     applies_to = models.CharField(
         max_length=20,
         choices=AppliesTo.choices,
-        default=AppliesTo.ALL,
-        help_text="Scope of application: ALL items, specific PRODUCTS, or SUBSCRIPTIONS",
+        default=AppliesTo.SUBSCRIPTIONS,
+        help_text="Scope of application: specific products or the whole subscription",
     )
     products = models.ManyToManyField(
         "products.Product",

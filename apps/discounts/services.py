@@ -27,7 +27,6 @@ class DiscountService:
         if on_date is None:
             on_date = timezone.now().date()
 
-        # Filter active and date-valid discounts
         qs = Discount.objects.filter(
             is_active=True,
             start_date__lte=on_date,
@@ -39,7 +38,6 @@ class DiscountService:
         eligible = []
         lines_list = list(lines) if lines is not None else []
 
-        # Calculate line metrics if lines provided
         total_quantity = 0
         product_ids_in_lines = set()
         calculated_subtotal = Decimal("0.00")
@@ -62,29 +60,22 @@ class DiscountService:
         effective_subtotal = subtotal if subtotal is not None else calculated_subtotal
 
         for discount in qs:
-            # Check remaining usage limit
             if discount.usage_limit is not None and discount.usage_count >= discount.usage_limit:
                 continue
 
-            # Minimum purchase condition
             if discount.minimum_purchase is not None:
                 if effective_subtotal < discount.minimum_purchase:
                     continue
 
-            # Minimum quantity condition
             if discount.minimum_quantity is not None:
                 if total_quantity < discount.minimum_quantity:
                     continue
 
-            # Scope condition: ALL, PRODUCTS, or SUBSCRIPTIONS
-            if discount.applies_to == Discount.AppliesTo.ALL:
-                eligible.append(discount)
-            elif discount.applies_to == Discount.AppliesTo.SUBSCRIPTIONS:
+            if discount.applies_to == Discount.AppliesTo.SUBSCRIPTIONS:
                 if subscription is not None:
                     eligible.append(discount)
             elif discount.applies_to == Discount.AppliesTo.PRODUCTS:
                 discount_product_ids = set(discount.products.values_list("id", flat=True))
-                # If matching lines exist or no lines were provided for evaluation
                 if not lines_list or (discount_product_ids & product_ids_in_lines):
                     eligible.append(discount)
 
@@ -98,7 +89,6 @@ class DiscountService:
         """
         lines_list = list(lines) if lines is not None else []
 
-        # Determine the base amount the discount applies to
         if discount.applies_to == Discount.AppliesTo.PRODUCTS and lines_list:
             applicable_product_ids = set(discount.products.values_list("id", flat=True))
             applicable_amount = Decimal("0.00")
@@ -129,10 +119,9 @@ class DiscountService:
 
         if discount.discount_type == Discount.DiscountType.PERCENTAGE:
             raw_discount = applicable_amount * (discount.value / Decimal("100.00"))
-        else:  # FIXED
+        else:
             raw_discount = discount.value
 
-        # Cap so discount never exceeds the applicable amount
         discount_amount = min(raw_discount, applicable_amount)
         discount_amount = max(Decimal("0.00"), discount_amount)
         return quantize_currency(discount_amount)
@@ -151,25 +140,20 @@ class DiscountService:
             return None
 
         with transaction.atomic():
-            # Concurrency-safe lock on the discount record
             locked_discount = Discount.objects.select_for_update().get(pk=discount.pk)
 
-            # Re-verify active and dates
             eval_date = invoice.issue_date or timezone.now().date()
             if not locked_discount.is_active:
                 raise ValidationError(f"Discount '{locked_discount.name}' is inactive.")
             if eval_date < locked_discount.start_date or eval_date > locked_discount.end_date:
                 raise ValidationError(f"Discount '{locked_discount.name}' is outside its active date range.")
 
-            # Re-verify usage limit under lock
             if locked_discount.usage_limit is not None and locked_discount.usage_count >= locked_discount.usage_limit:
                 raise ValidationError(f"Discount '{locked_discount.name}' has reached its usage limit.")
 
-            # Check if this discount is already applied to this invoice
             if DiscountUsage.objects.filter(discount=locked_discount, invoice=invoice).exists():
                 raise ValidationError(f"Discount '{locked_discount.name}' is already applied to invoice {invoice.invoice_number}.")
 
-            # Record usage
             usage = DiscountUsage.objects.create(
                 discount=locked_discount,
                 customer=invoice.customer,
@@ -178,7 +162,6 @@ class DiscountService:
                 discount_amount=amount,
             )
 
-            # Atomically increment usage_count with F() expression
             Discount.objects.filter(pk=locked_discount.pk).update(usage_count=F("usage_count") + 1)
             locked_discount.refresh_from_db(fields=["usage_count"])
 

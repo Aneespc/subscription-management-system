@@ -1,109 +1,64 @@
-{% extends 'base.html' %}
-
-{% block title %}{{ title }} - Brightloop Software{% endblock %}
-
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
 {% block content %}
-<div class="mb-4">
-  <div class="d-flex justify-content-between align-items-center">
-    <div>
-      <h2 class="h3 fw-bold mb-1">{{ title }}</h2>
-      <p class="text-muted mb-0">Configure subscription parameters, assign customer, plan, and product lines.</p>
-    </div>
-    <a href="{% url 'subscriptions:list' %}" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i> Back to Subscriptions
-    </a>
-  </div>
+<div class="page-header">
+  <div><h1>{{ title }}</h1><p>Customer, plan, dates, payment terms and the product lines that will be billed each cycle.</p></div>
+  <a href="{% if subscription %}{% url 'subscriptions:detail' subscription.pk %}{% else %}{% url 'subscriptions:list' %}{% endif %}" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </div>
-
-<form method="post">
+{{ variant_map|json_script:"variant-map" }}
+<form method="post" novalidate>
   {% csrf_token %}
-
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 border-bottom">
-      <h5 class="card-title mb-0 fw-semibold">Subscription Parameters</h5>
-    </div>
+  <div class="card mb-4">
+    <div class="card-header">Subscription</div>
     <div class="card-body">
+      {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors.0 }}</div>{% endif %}
       <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Customer <span class="text-danger">*</span></label>
-          {{ form.customer }}
-          {% if form.customer.errors %}<div class="text-danger small">{{ form.customer.errors }}</div>{% endif %}
-        </div>
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Plan <span class="text-danger">*</span></label>
-          {{ form.plan }}
-          {% if form.plan.errors %}<div class="text-danger small">{{ form.plan.errors }}</div>{% endif %}
-        </div>
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
-          {{ form.start_date }}
-          {% if form.start_date.errors %}<div class="text-danger small">{{ form.start_date.errors }}</div>{% endif %}
-        </div>
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Expiry Date</label>
-          {{ form.expiry_date }}
-          {% if form.expiry_date.errors %}<div class="text-danger small">{{ form.expiry_date.errors }}</div>{% endif %}
-        </div>
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Payment Terms</label>
-          {{ form.payment_terms }}
-          {% if form.payment_terms.errors %}<div class="text-danger small">{{ form.payment_terms.errors }}</div>{% endif %}
-        </div>
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Status</label>
-          {{ form.status }}
-          {% if form.status.errors %}<div class="text-danger small">{{ form.status.errors }}</div>{% endif %}
-        </div>
+        <div class="col-md-6"><label class="form-label required">Customer</label>{{ form.customer }}{% if form.customer.errors %}<div class="text-danger small mt-1">{{ form.customer.errors.0 }}</div>{% endif %}</div>
+        <div class="col-md-6"><label class="form-label required">Plan</label>{{ form.plan }}{% if form.plan.errors %}<div class="text-danger small mt-1">{{ form.plan.errors.0 }}</div>{% endif %}</div>
+        <div class="col-md-3"><label class="form-label required">Start date</label>{{ form.start_date }}{% if form.start_date.errors %}<div class="text-danger small mt-1">{{ form.start_date.errors.0 }}</div>{% endif %}</div>
+        <div class="col-md-3"><label class="form-label">Expiry date</label>{{ form.expiry_date }}{% if form.expiry_date.errors %}<div class="text-danger small mt-1">{{ form.expiry_date.errors.0 }}</div>{% endif %}</div>
+        <div class="col-md-3"><label class="form-label">Payment terms</label>{{ form.payment_terms }}</div>
+        <div class="col-md-3"><label class="form-label">Status</label>{{ form.status }}</div>
       </div>
     </div>
   </div>
-
-  <!-- Subscription Lines -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0 fw-semibold">Subscription Product Items</h5>
-      <span class="text-muted small">Unit price will auto-fill from product & variant if left 0</span>
-    </div>
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">Product lines <button type="button" class="btn btn-sm btn-light" id="add-row"><i class="bi bi-plus-lg me-1"></i>Add line</button></div>
     <div class="card-body p-0">
       {{ formset.management_form }}
+      {% if formset.non_form_errors %}<div class="alert alert-danger m-3 py-2">{{ formset.non_form_errors.0 }}</div>{% endif %}
       <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead>
-            <tr>
-              <th style="width: 30%;">Product</th>
-              <th style="width: 25%;">Variant</th>
-              <th style="width: 12%;">Quantity</th>
-              <th style="width: 15%;">Unit Price ($)</th>
-              <th style="width: 10%;">Tax Rate (%)</th>
-              <th style="width: 8%;" class="text-center">Del</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for line_form in formset %}
-              <tr>
-                <td>{{ line_form.id }}{{ line_form.product }}</td>
-                <td>{{ line_form.variant }}</td>
-                <td>{{ line_form.quantity }}</td>
-                <td>{{ line_form.unit_price }}</td>
-                <td>{{ line_form.tax_rate }}</td>
-                <td class="text-center">
-                  {% if line_form.instance.pk %}
-                    <div class="form-check d-inline-block">{{ line_form.DELETE }}</div>
-                  {% endif %}
-                </td>
+        <table class="table table-form">
+          <thead><tr><th style="width:34%">Product</th><th style="width:32%">Variant</th><th style="width:12%">Qty</th><th style="width:16%">Unit price</th><th style="width:6%"></th></tr></thead>
+          <tbody id="formset-rows">
+            {% for line in formset %}
+              <tr class="formset-row {% if line.DELETE.value %}d-none{% endif %}">
+                <td>{{ line.id }}{{ line.product }}{% if line.product.errors %}<div class="text-danger small">{{ line.product.errors.0 }}</div>{% endif %}</td>
+                <td>{{ line.variant }}{% if line.variant.errors %}<div class="text-danger small">{{ line.variant.errors.0 }}</div>{% endif %}</td>
+                <td>{{ line.quantity }}{% if line.quantity.errors %}<div class="text-danger small">{{ line.quantity.errors.0 }}</div>{% endif %}</td>
+                <td>{{ line.unit_price }}{% if line.unit_price.errors %}<div class="text-danger small">{{ line.unit_price.errors.0 }}</div>{% endif %}</td>
+                <td class="text-end"><div class="d-none">{{ line.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row"><i class="bi bi-trash text-danger"></i></button></td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      <div class="px-3 pb-3 small text-muted">Leave unit price empty to use the product sales price plus the variant extra. Tax follows the rule set on each product.</div>
+      <template id="empty-row-template">
+        <tr class="formset-row">
+          <td>{{ formset.empty_form.id }}{{ formset.empty_form.product }}</td>
+          <td>{{ formset.empty_form.variant }}</td>
+          <td>{{ formset.empty_form.quantity }}</td>
+          <td>{{ formset.empty_form.unit_price }}</td>
+          <td class="text-end"><div class="d-none">{{ formset.empty_form.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row"><i class="bi bi-trash text-danger"></i></button></td>
+        </tr>
+      </template>
     </div>
   </div>
-
-  <div class="d-flex justify-content-end gap-2 mb-5">
-    <a href="{% url 'subscriptions:list' %}" class="btn btn-outline-secondary">Cancel</a>
-    <button type="submit" class="btn btn-primary px-4">
-      <i class="bi bi-check2-circle me-1"></i> Save Subscription
-    </button>
+  <div class="d-flex justify-content-end gap-2">
+    <a href="{% url 'subscriptions:list' %}" class="btn btn-light">Cancel</a>
+    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check2 me-1"></i>Save subscription</button>
   </div>
 </form>
 {% endblock %}

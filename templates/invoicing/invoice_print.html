@@ -38,9 +38,6 @@
     <button onclick="window.print()" class="btn btn-sm btn-primary me-2">
       Print this Invoice
     </button>
-    <a href="{% url 'invoicing:invoice_pdf' invoice.pk %}" class="btn btn-sm btn-outline-light me-2">
-      Download PDF
-    </a>
     <a href="{% url 'invoicing:invoice_detail' invoice.pk %}" class="btn btn-sm btn-secondary">
       Back to Invoice Details
     </a>
@@ -65,10 +62,10 @@
       <div class="col-6">
         <h6 class="text-uppercase text-muted fw-bold small">Billed To:</h6>
         <h5 class="fw-bold mb-1">{{ invoice.customer.company_name|default:invoice.customer.user.username }}</h5>
-        <p class="text-muted small mb-1">{{ invoice.customer.billing_address|linebreaksbr }}</p>
+        <p class="text-muted small mb-1">{{ invoice.customer.address|linebreaksbr }}</p>
         <p class="text-muted small mb-0">{{ invoice.customer.billing_email|default:invoice.customer.user.email }}</p>
-        {% if invoice.customer.tax_id %}
-          <p class="text-muted small mb-0">Tax ID: {{ invoice.customer.tax_id }}</p>
+        {% if invoice.customer.tax_number %}
+          <p class="text-muted small mb-0">Tax ID: {{ invoice.customer.tax_number }}</p>
         {% endif %}
       </div>
       <div class="col-6 text-end">

@@ -1,70 +1,38 @@
-{% extends 'base.html' %}
-
-{% block title %}Create Quote from Template - Brightloop Software{% endblock %}
-
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Quote from template{% endblock %}
+{% block header_title %}Quote from template{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-8">
-    <div class="mb-4">
-      <a href="{% url 'quotations:list' %}" class="btn btn-outline-secondary btn-sm mb-2">
-        <i class="bi bi-arrow-left me-1"></i> Back to Quotations
-      </a>
-      <h2 class="h3 fw-bold mb-1">Create Quotation from Template</h2>
-      <p class="text-muted mb-0">Select a pre-configured template with bundled products, plan, and validity period to quickly draft a quote.</p>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-body p-4">
-        <form method="post">
-          {% csrf_token %}
-          
-          <div class="mb-3">
-            <label class="form-label fw-bold">Select Customer <span class="text-danger">*</span></label>
-            {{ form.customer }}
-            <div class="form-text">Choose the customer organization for this quotation.</div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label fw-bold">Select Quotation Template <span class="text-danger">*</span></label>
-            {{ form.template }}
-            <div class="form-text">Templates bundle default plans, lines, and validity terms.</div>
-          </div>
-
-          <div class="mb-4">
-            <label class="form-label fw-bold">Payment Terms</label>
-            {{ form.payment_terms }}
-          </div>
-
-          <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-primary btn-lg">
-              <i class="bi bi-lightning-charge me-1"></i> Generate Quotation
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Available Templates Preview -->
-    <h5 class="fw-bold mb-3">Available Reusable Templates</h5>
+<div class="page-header">
+  <div><h1>New quotation from template</h1><p>Pick the customer and the template. Lines, plan and validity are copied in.</p></div>
+  <a href="{% url 'quotations:list' %}" class="btn btn-light"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3"><label class="form-label required">Customer</label>{{ form.customer }}{% if form.customer.errors %}<div class="text-danger small mt-1">{{ form.customer.errors.0 }}</div>{% endif %}</div>
+        <div class="mb-3"><label class="form-label required">Template</label>{{ form.template }}{% if form.template.errors %}<div class="text-danger small mt-1">{{ form.template.errors.0 }}</div>{% endif %}</div>
+        <div class="mb-4"><label class="form-label">Payment terms</label>{{ form.payment_terms }}</div>
+        <button class="btn btn-primary btn-lg w-100" type="submit"><i class="bi bi-magic me-1"></i>Create quotation</button>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-7">
     <div class="row g-3">
       {% for t in templates %}
         <div class="col-md-6">
-          <div class="card h-100 border p-3">
-            <div class="d-flex justify-content-between align-items-start">
-              <h6 class="fw-bold mb-1">{{ t.name }}</h6>
-              <span class="badge bg-primary">{{ t.validity_days }} Days Valid</span>
-            </div>
-            <div class="text-muted small mb-2">Attached Plan: <strong>{{ t.plan.name }}</strong> (${{ t.plan.price }})</div>
-            <p class="text-muted small mb-2">{{ t.description|truncatewords:15|default:"Standard configuration" }}</p>
-            <div class="small fw-semibold text-secondary">
-              <i class="bi bi-layers me-1"></i> {{ t.template_lines.count }} Bundled Line Item(s)
-            </div>
-          </div>
+          <div class="card h-100"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-start"><h6 class="fw-bold mb-1">{{ t.name }}</h6><span class="badge bg-primary-subtle text-primary border">{{ t.validity_days }} days</span></div>
+            <div class="small text-muted mb-2">{{ t.plan.name }} &middot; ${{ t.plan.price|floatformat:2|intcomma }}</div>
+            <ul class="list-unstyled small mb-0">
+              {% for line in t.template_lines.all %}<li class="d-flex justify-content-between"><span>{{ line.product.name }}{% if line.variant %} ({{ line.variant.attribute_value }}){% endif %}</span><span class="text-muted">× {{ line.quantity }}</span></li>{% endfor %}
+            </ul>
+          </div></div>
         </div>
       {% empty %}
-        <div class="col-12 text-center py-4 text-muted">
-          No active templates found. <a href="{% url 'quotations:template_create' %}">Create a template here</a>.
-        </div>
+        <div class="col-12"><div class="empty-state"><i class="bi bi-layout-text-window-reverse"></i>No active templates. <a href="{% url 'quotations:template_create' %}">Create one</a>.</div></div>
       {% endfor %}
     </div>
   </div>

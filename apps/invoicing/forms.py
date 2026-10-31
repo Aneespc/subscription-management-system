@@ -2,8 +2,8 @@ from decimal import Decimal
 from django import forms
 
 from apps.accounts.models import CustomerProfile
-from apps.invoicing.models import Invoice, Tax
-from apps.subscriptions.models import Subscription
+from apps.invoicing.models import Invoice
+from apps.products.models import Tax
 
 
 class TaxForm(forms.ModelForm):
@@ -24,44 +24,10 @@ class TaxForm(forms.ModelForm):
         return rate
 
 
-class InvoiceGenerateForm(forms.Form):
-    subscription = forms.ModelChoiceField(
-        queryset=Subscription.objects.none(),
-        widget=forms.Select(attrs={"class": "form-select"}),
-        help_text="Select an active subscription to bill.",
-    )
-    billing_period_start = forms.DateField(
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
-        help_text="Start date of the billing period.",
-    )
-    billing_period_end = forms.DateField(
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
-        help_text="End date of the billing period.",
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["subscription"].queryset = (
-            Subscription.objects.filter(status=Subscription.Status.ACTIVE)
-            .select_related("customer", "plan")
-            .order_by("subscription_number")
-        )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        start = cleaned_data.get("billing_period_start")
-        end = cleaned_data.get("billing_period_end")
-
-        if start and end and end < start:
-            self.add_error("billing_period_end", "Billing period end date cannot be earlier than start date.")
-
-        return cleaned_data
-
-
 class InvoiceFilterForm(forms.Form):
     q = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Search invoice # or customer..."}),
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Invoice #, customer, subscription..."}),
     )
     status = forms.ChoiceField(
         required=False,
@@ -70,7 +36,7 @@ class InvoiceFilterForm(forms.Form):
     )
     customer = forms.ModelChoiceField(
         required=False,
-        queryset=CustomerProfile.objects.all().order_by("company_name", "user__username"),
+        queryset=CustomerProfile.objects.order_by("company_name"),
         empty_label="All Customers",
         widget=forms.Select(attrs={"class": "form-select"}),
     )

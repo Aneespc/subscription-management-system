@@ -1,75 +1,43 @@
-from django.contrib.admin.views.decorators import staff_member_required
-from django.core.cache import cache
-from django.shortcuts import render
-from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from django.utils import timezone
+from django.views.generic import TemplateView
 
-from apps.payments.permissions import IsStaffOrAdmin
-from apps.payments.serializers import OverdueInvoiceSerializer, PaymentSerializer
+from apps.accounts.mixins import StaffRequiredMixin
+from apps.payments.models import Payment
 from apps.payments.services import get_overdue_invoices
+from apps.subscriptions.models import Subscription
 
 from . import services
-
-CACHE_SECONDS = 30
-
-
-@staff_member_required
-def dashboard_page(request):
-    """The HTML dashboard. Redirects to the admin login if not logged in as staff."""
-    return render(request, "dashboard/index.html")
+from .services import DashboardFilterForm
 
 
-class CachedDashboardView(APIView):
-    permission_classes = [IsStaffOrAdmin]
+class DashboardPageView(StaffRequiredMixin, TemplateView):
+    template_name = "dashboard/index.html"
 
-    def build(self, params):
-        raise NotImplementedError
-
-    def get(self, request):
-        key = "dash:" + request.get_full_path()
-        data = cache.get(key)
-        if data is None:
-            data = self.build(request.query_params)
-            cache.set(key, data, CACHE_SECONDS)
-        return Response(data)
-
-
-class SummaryView(CachedDashboardView):
-    def build(self, params):
-        return services.get_summary(params)
-
-
-class RevenueView(CachedDashboardView):
-    def build(self, params):
-        return {"group": params.get("group", "month"), "results": services.revenue_by_period(params)}
-
-
-class ReportsView(CachedDashboardView):
-    def build(self, params):
-        return services.get_report(params)
-
-
-class SubscriptionsView(APIView):
-    permission_classes = [IsStaffOrAdmin]
-
-    def get(self, request):
-        # TODO: aggregate Subscription by status once Member 2's models land
-        return Response({"detail": "Waiting for Subscription model.", "distribution": []})
-
-
-class PaymentsListView(generics.ListAPIView):
-    permission_classes = [IsStaffOrAdmin]
-    serializer_class = PaymentSerializer
-
-    def get_queryset(self):
-        return services.filter_payments(self.request.query_params) \
-            .select_related("invoice", "recorded_by").order_by("-payment_date")
-
-
-class OverdueInvoicesView(generics.ListAPIView):
-    permission_classes = [IsStaffOrAdmin]
-    serializer_class = OverdueInvoiceSerializer
-
-    def get_queryset(self):
-        return get_overdue_invoices().order_by("due_date")
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        form = DashboardFilterForm(self.request.GET or None)
+        data = form.cleaned_data if form.is_valid() else {}
+        method_labels = dict(Payment.PaymentMethod.choices)
+        overdue = list(get_overdue_invoices().select_related("customer").order_by("due_date")[:25])
+        for invoice in overdue:
+            invoice.days_late = (today - invoice.due_date).days
+        context.update(
+            {
+                "filter_form": form,
+                "summary": services.get_summary(data),
+                "payments_by_method": [
+                    {**row, "label": method_labels.get(row["payment_method"], row["payment_method"])}
+                    for row in services.payments_by_method(data)
+                ],
+                "payments": services.filter_payments(data).select_related("invoice", "invoice__customer").order_by("-payment_date")[:25],
+                "active_subscriptions": services.filter_subscriptions(data)
+                .filter(status=Subscription.Status.ACTIVE)
+                .select_related("customer", "plan")
+                .order_by("next_billing_date")[:25],
+                "overdue_invoices": overdue,
+                "today": today,
+                "has_filters": bool(self.request.GET),
+            }
+        )
+        return context

@@ -1,9 +1,8 @@
-# TEMP STUB: Owned by Member 2 (subscriptions) - Minimal stub for Member 3 feature branch
 from django.apps import AppConfig
 
 
 class SubscriptionsConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
     name = "apps.subscriptions"
     label = "subscriptions"
-    verbose_name = "Subscriptions (Stub)"
-
+    verbose_name = "Subscriptions"
