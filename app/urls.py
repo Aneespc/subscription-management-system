@@ -8,4 +8,6 @@ urlpatterns = [
     path("api/", include("apps.payments.urls")),
     path("api/dashboard/", include("apps.dashboard.urls")),
     path("dashboard/", dashboard_page, name="dashboard"),
+    path("accounts/", include("accounts.urls")),
 ]
+
