@@ -34,7 +34,7 @@ Password reset and invoice emails print to the console in development. Set `DJAN
 
 **A customer asks for a better price.** Only admins create discounts: fixed or percentage, with minimum purchase or quantity, start and end dates, and a usage limit, scoped to specific products or the whole subscription. The best valid discount is applied automatically on the next invoice and stops when it expires or runs out.
 
-**The money comes in.** Staff record payments against confirmed invoices with method, amount, date and a note. The invoice list shows what is paid, outstanding and overdue.
+**The money comes in.** Staff record payments against confirmed invoices with method, amount, date and a note. Customers can also pay a confirmed invoice online through Razorpay; the payment is recorded automatically once Razorpay confirms it. The invoice list shows what is paid, outstanding and overdue.
 
 **The finance lead, at the end of the month.** The dashboard shows active subscriptions, revenue received, what is still owed, overdue invoices and payments, filtered by date range, payment method and customer. List pages use annotated queries, indexes and pagination and stay well under two seconds with thousands of subscriptions.
 
@@ -62,6 +62,14 @@ Run the billing job inside the container on a schedule:
 ```bash
 docker compose exec web python manage.py generate_invoices
 ```
+
+## Online payments with Razorpay (test mode)
+
+1. Create a Razorpay account and copy the **test** key id and secret from Settings → API Keys.
+2. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `.env` (or the environment). The **Pay now** button appears on confirmed invoices for customers only when both are set.
+3. Optionally add a webhook in the Razorpay dashboard pointing to `https://your-host/payments/razorpay/webhook/` for the `payment.captured` and `payment.failed` events, and put its secret in `RAZORPAY_WEBHOOK_SECRET`. The webhook records payments the browser failed to report back.
+
+In test mode use Razorpay's test cards, for example `4111 1111 1111 1111` with any future expiry and CVV, or the `success@razorpay` UPI id.
 
 ## Project layout
 

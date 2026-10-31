@@ -16,6 +16,9 @@
   </div>
   <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'invoicing:invoice_print' invoice.pk %}" target="_blank" class="btn btn-light"><i class="bi bi-printer me-1"></i>Print</a>
+    {% if can_pay_online %}
+      <form method="post" action="{% url 'payments:razorpay_checkout' invoice.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-credit-card me-1"></i>Pay {{ outstanding|money }} now</button></form>
+    {% endif %}
     {% if can_manage %}
       {% if invoice.can_confirm %}<form method="post" action="{% url 'invoicing:invoice_confirm' invoice.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Confirm</button></form>{% endif %}
       {% if invoice.status == 'CONFIRMED' %}<a href="{% url 'payments:record' invoice.pk %}" class="btn btn-success"><i class="bi bi-cash-coin me-1"></i>Record payment</a>{% endif %}
@@ -69,7 +72,7 @@
         {% if invoice.status == 'PAID' %}<div class="alert alert-success py-2 mb-0 mt-2 small"><i class="bi bi-shield-check me-1"></i>Paid in full. This invoice can no longer be changed.</div>
         {% elif invoice.status == 'CANCELLED' %}<div class="alert alert-danger py-2 mb-0 mt-2 small"><i class="bi bi-ban me-1"></i>This invoice was cancelled.</div>
         {% elif invoice.status == 'DRAFT' %}<div class="alert alert-info py-2 mb-0 mt-2 small"><i class="bi bi-info-circle me-1"></i>Draft. Confirm it to make it payable.</div>
-        {% else %}<div class="p-3 rounded-3 mt-2" style="background:var(--canvas-cream);"><div class="small text-muted">Outstanding</div><div class="fs-4 fw-bold text-warning">{{ outstanding|money }}</div></div>{% endif %}
+        {% else %}<div class="p-3 rounded-3 mt-2" style="background:var(--canvas-cream);"><div class="small text-muted">Outstanding</div><div class="fs-4 fw-bold text-warning">{{ outstanding|money }}</div>{% if can_pay_online %}<form method="post" action="{% url 'payments:razorpay_checkout' invoice.pk %}" class="mt-2">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-credit-card me-1"></i>Pay online</button></form>{% endif %}</div>{% endif %}
       </div>
     </div>
   </div>
@@ -138,7 +141,7 @@
           <tbody>
             {% for p in payments %}
               <tr>
-                <td class="font-monospace fw-semibold">{{ p.payment_number }}{% if p.notes %}<div class="small text-muted fw-normal">{{ p.notes }}</div>{% endif %}</td>
+                <td class="font-monospace fw-semibold">{{ p.payment_number }}{% if p.notes %}<div class="small text-muted fw-normal">{{ p.notes|truncatechars:60 }}</div>{% endif %}</td>
                 <td>{{ p.get_payment_method_display }}</td>
                 <td>{{ p.payment_date|date:"M d, Y" }}</td>
                 <td class="num text-success fw-semibold">{{ p.amount|money }}</td>
@@ -150,6 +153,17 @@
           {% if payments %}<tfoot><tr class="table-light"><td colspan="3" class="text-end fw-semibold">Outstanding</td><td class="num fw-bold">{{ outstanding|money }}</td></tr></tfoot>{% endif %}
         </table>
       </div>
+      {% if can_manage and gateway_orders %}
+        <div class="card-header border-top">Online payment attempts</div>
+        <ul class="list-group list-group-flush">
+          {% for order in gateway_orders %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div><span class="font-monospace">{{ order.order_id }}</span><div class="small text-muted">{{ order.created_at|date:"M d, Y H:i" }}{% if order.error_message %} · {{ order.error_message }}{% endif %}</div></div>
+              <div class="text-end"><div class="num">{{ order.amount|money }}</div><span class="badge-status {% if order.status == 'PAID' %}badge-paid{% elif order.status == 'FAILED' %}badge-cancelled{% else %}badge-pending{% endif %}">{{ order.get_status_display }}</span></div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
     </div>
   </div>
 </div>

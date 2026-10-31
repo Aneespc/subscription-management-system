@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -85,6 +86,12 @@ class InvoiceDetailView(LoginRequiredMixin, DetailView):
         context["can_manage"] = is_staff_user(self.request.user)
         context["outstanding"] = calculate_outstanding(self.object)
         context["paid"] = self.object.total_amount - context["outstanding"]
+        context["can_pay_online"] = (
+            settings.RAZORPAY_ENABLED
+            and self.object.status == Invoice.Status.CONFIRMED
+            and context["outstanding"] > 0
+        )
+        context["gateway_orders"] = self.object.gateway_orders.all()[:10]
         context["payments"] = self.object.payments.all().order_by("-payment_date")
         return context
 

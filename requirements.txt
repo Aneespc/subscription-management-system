@@ -4,6 +4,7 @@ Django==6.1.2
 gunicorn==23.0.0
 psycopg[binary]==3.3.6
 python-dateutil==3.0.0
+razorpay==2.0.1
 six==1.17.0
 sqlparse==0.6.0
 tzdata==2026.6

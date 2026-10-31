@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Pay {{ invoice.invoice_number }}{% endblock %}
+{% block header_title %}Pay online{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="page-header">
+      <div>
+        <a href="{% url 'invoicing:invoice_detail' invoice.pk %}" class="small text-muted"><i class="bi bi-arrow-left me-1"></i>Back to {{ invoice.invoice_number }}</a>
+        <h1 class="mt-1">Pay {{ order.amount|money }}</h1>
+        <p>Secure payment through Razorpay. Cards, UPI, net banking and wallets are accepted.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="detail-list mb-4">
+          <div class="row-item"><span>Invoice</span><span>{{ invoice.invoice_number }}</span></div>
+          <div class="row-item"><span>Billed to</span><span>{{ invoice.customer.company_name }}</span></div>
+          <div class="row-item"><span>Due date</span><span>{{ invoice.due_date|date:"M d, Y" }}</span></div>
+          <div class="row-item"><span>Amount</span><span class="fs-4">{{ order.amount|money }}</span></div>
+        </div>
+        <button id="pay-button" class="btn btn-primary btn-lg w-100" type="button"><i class="bi bi-credit-card me-1"></i>Pay with Razorpay</button>
+        <div class="small text-muted mt-3">You will be returned to the invoice once the payment is confirmed. Nothing is recorded until Razorpay confirms it.</div>
+        <form id="callback-form" method="post" action="{{ callback_url }}">
+          {% csrf_token %}
+          <input type="hidden" name="razorpay_order_id" id="rzp-order">
+          <input type="hidden" name="razorpay_payment_id" id="rzp-payment">
+          <input type="hidden" name="razorpay_signature" id="rzp-signature">
+          <input type="hidden" name="error" id="rzp-error">
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+(function () {
+  const form = document.getElementById("callback-form");
+  const options = {
+    key: "{{ key_id|escapejs }}",
+    amount: {{ amount_paise }},
+    currency: "{{ currency|escapejs }}",
+    name: "Brightloop Software",
+    description: "Invoice {{ invoice.invoice_number|escapejs }}",
+    order_id: "{{ order.order_id|escapejs }}",
+    prefill: { name: "{{ customer.company_name|escapejs }}", email: "{{ customer.contact_email|escapejs }}", contact: "{{ customer.phone|escapejs }}" },
+    theme: { color: "#533afd" },
+    handler: function (response) {
+      document.getElementById("rzp-order").value = response.razorpay_order_id;
+      document.getElementById("rzp-payment").value = response.razorpay_payment_id;
+      document.getElementById("rzp-signature").value = response.razorpay_signature;
+      form.submit();
+    },
+    modal: { ondismiss: function () {} },
+  };
+  const rzp = new Razorpay(options);
+  rzp.on("payment.failed", function (response) {
+    document.getElementById("rzp-error").value = (response.error && response.error.description) || "Payment failed";
+    form.submit();
+  });
+  document.getElementById("pay-button").addEventListener("click", function () { rzp.open(); });
+})();
+</script>
+{% endblock %}
