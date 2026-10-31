@@ -76,6 +76,36 @@
             {% endif %}
           </div>
         </div>
+
+        {% if invoice.payments.exists %}
+          <div class="border-top pt-3 mt-3">
+            <h6 class="text-uppercase text-muted fw-bold small mb-2"><i class="bi bi-credit-card me-1"></i>Recorded Payments</h6>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0 small">
+                <thead class="table-light">
+                  <tr>
+                    <th>Payment ID</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th class="text-end">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for payment in invoice.payments.all %}
+                    <tr>
+                      <td class="font-monospace">#{{ payment.id }}</td>
+                      <td>{{ payment.payment_date|date:"M d, Y H:i" }}</td>
+                      <td>{{ payment.payment_method }}</td>
+                      <td><span class="badge bg-success">{{ payment.get_status_display }}</span></td>
+                      <td class="text-end fw-bold">${{ payment.amount }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -229,7 +259,7 @@
                 <div>
                   <span class="fw-bold">{{ usage.discount.name }}</span>
                   <span class="badge bg-light text-dark border ms-2">
-                    {{ usage.discount.get_discount_type_display }}: {{ usage.discount.value }}{% if usage.discount.discount_type == 'PERCENTAGE' %}%{% else %}${% endif %}
+                    {{ usage.discount.get_discount_type_display }}: {{ usage.discount.formatted_value }}
                   </span>
                 </div>
                 <span class="text-success fw-bold">-${{ usage.discount_amount }}</span>
@@ -248,23 +278,22 @@
         <h5 class="fw-bold mb-3 border-bottom pb-2">Total Summary</h5>
         <div class="d-flex justify-content-between py-2 border-bottom">
           <span class="text-muted">Subtotal:</span>
-          <span class="fw-semibold">${{ invoice.subtotal }}</span>
+          <span class="fw-semibold">{{ invoice.formatted_subtotal }}</span>
         </div>
         <div class="d-flex justify-content-between py-2 border-bottom text-success">
           <span>Total Discount:</span>
-          <span class="fw-semibold">-${{ invoice.discount_amount }}</span>
+          <span class="fw-semibold">-{{ invoice.formatted_discount }}</span>
         </div>
         <div class="d-flex justify-content-between py-2 border-bottom">
           <span class="text-muted">Total Tax:</span>
-          <span class="fw-semibold">+${{ invoice.tax_amount }}</span>
+          <span class="fw-semibold">+{{ invoice.formatted_tax }}</span>
         </div>
         <div class="d-flex justify-content-between py-3 fs-5">
           <span class="fw-bold">Total Amount Due:</span>
-          <span class="fw-bold text-primary">${{ invoice.total_amount }}</span>
+          <span class="fw-bold text-primary">{{ invoice.formatted_total }}</span>
         </div>
       </div>
     </div>
   </div>
 </div>
 {% endblock %}
-

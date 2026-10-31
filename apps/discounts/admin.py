@@ -20,6 +20,7 @@ class DiscountAdmin(admin.ModelAdmin):
     search_fields = ["name"]
     filter_horizontal = ["products"]
     readonly_fields = ["usage_count", "created_at"]
+    list_select_related = ["created_by"]
 
 
 @admin.register(DiscountUsage)
@@ -34,4 +35,4 @@ class DiscountUsageAdmin(admin.ModelAdmin):
         "subscription__subscription_number",
     ]
     readonly_fields = ["discount", "customer", "invoice", "subscription", "discount_amount", "used_at"]
-
+    list_select_related = ["discount", "customer", "invoice", "subscription"]

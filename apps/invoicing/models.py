@@ -202,6 +202,22 @@ class Invoice(models.Model):
     def is_cancelled(self):
         return self.status == self.Status.CANCELLED
 
+    @property
+    def formatted_total(self):
+        return f"${self.total_amount:,.2f}"
+
+    @property
+    def formatted_subtotal(self):
+        return f"${self.subtotal:,.2f}"
+
+    @property
+    def formatted_tax(self):
+        return f"${self.tax_amount:,.2f}"
+
+    @property
+    def formatted_discount(self):
+        return f"${self.discount_amount:,.2f}"
+
 
 class InvoiceLine(models.Model):
     """
@@ -288,4 +304,3 @@ class InvoiceTaxLine(models.Model):
         self.taxable_amount = quantize_currency(self.taxable_amount)
         self.tax_amount = quantize_currency(self.tax_amount)
         super().save(*args, **kwargs)
-

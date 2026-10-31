@@ -126,6 +126,12 @@ class Discount(models.Model):
             return None
         return max(0, self.usage_limit - self.usage_count)
 
+    @property
+    def formatted_value(self):
+        if self.discount_type == self.DiscountType.PERCENTAGE:
+            return f"{self.value}%"
+        return f"${self.value:,.2f}"
+
 
 class DiscountUsage(models.Model):
     discount = models.ForeignKey(
@@ -173,4 +179,3 @@ class DiscountUsage(models.Model):
 
     def __str__(self):
         return f"{self.discount.name} on Invoice {self.invoice_id} (${self.discount_amount})"
-

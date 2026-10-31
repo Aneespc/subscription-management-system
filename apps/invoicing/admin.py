@@ -49,4 +49,4 @@ class InvoiceAdmin(admin.ModelAdmin):
     inlines = [InvoiceLineInline, InvoiceTaxLineInline]
     readonly_fields = ["invoice_number", "created_at", "updated_at"]
     date_hierarchy = "issue_date"
-
+    list_select_related = ["customer", "customer__user", "subscription", "subscription__plan"]
