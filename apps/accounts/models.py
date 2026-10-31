@@ -49,6 +49,8 @@ class CustomerProfile(models.Model):
     company_name = models.CharField(max_length=255, blank=True)
     billing_email = models.EmailField(blank=True)
     billing_address = models.TextField(blank=True)
+    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=30, blank=True)
     tax_id = models.CharField(max_length=50, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -57,3 +59,9 @@ class CustomerProfile(models.Model):
             return f"{self.company_name} ({self.user.username})"
         return self.user.get_full_name() or self.user.username
 
+    def save(self, *args, **kwargs):
+        if not self.address and self.billing_address:
+            self.address = self.billing_address
+        elif not self.billing_address and self.address:
+            self.billing_address = self.address
+        super().save(*args, **kwargs)
