@@ -34,14 +34,14 @@
         </div>
         <div class="row g-4">
           <div class="col-sm-6">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Billed to</div>
+            <div class="eyebrow mb-1">Billed to</div>
             <div class="fw-bold">{{ invoice.customer.company_name }}</div>
             <div class="small text-muted">{{ invoice.customer.address|linebreaksbr|default:"No address on file" }}</div>
             <div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ invoice.customer.contact_email }}</div>
             {% if invoice.customer.tax_number %}<div class="small text-muted">Tax number {{ invoice.customer.tax_number }}</div>{% endif %}
           </div>
           <div class="col-sm-6">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Details</div>
+            <div class="eyebrow mb-1">Details</div>
             <div class="detail-list">
               <div class="row-item"><span>Issue date</span><span>{{ invoice.issue_date|date:"M d, Y" }}</span></div>
               <div class="row-item"><span>Due date</span><span class="{% if invoice.is_overdue %}text-danger{% endif %}">{{ invoice.due_date|date:"M d, Y" }}</span></div>
@@ -68,7 +68,7 @@
         {% if invoice.status == 'PAID' %}<div class="alert alert-success py-2 mb-0 mt-2 small"><i class="bi bi-shield-check me-1"></i>Paid in full. This invoice can no longer be changed.</div>
         {% elif invoice.status == 'CANCELLED' %}<div class="alert alert-danger py-2 mb-0 mt-2 small"><i class="bi bi-ban me-1"></i>This invoice was cancelled.</div>
         {% elif invoice.status == 'DRAFT' %}<div class="alert alert-info py-2 mb-0 mt-2 small"><i class="bi bi-info-circle me-1"></i>Draft. Confirm it to make it payable.</div>
-        {% else %}<div class="p-3 rounded-3 mt-2" style="background:#fffbeb;"><div class="small text-muted">Outstanding</div><div class="fs-4 fw-bold text-warning">${{ outstanding|floatformat:2|intcomma }}</div></div>{% endif %}
+        {% else %}<div class="p-3 rounded-3 mt-2" style="background:var(--canvas-cream);"><div class="small text-muted">Outstanding</div><div class="fs-4 fw-bold text-warning">${{ outstanding|floatformat:2|intcomma }}</div></div>{% endif %}
       </div>
     </div>
   </div>

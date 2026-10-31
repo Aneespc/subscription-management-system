@@ -54,7 +54,7 @@
 
   <div class="row mb-4">
     <div class="col-6">
-      <div class="text-muted small text-uppercase fw-semibold mb-1">Quotation For:</div>
+      <div class="eyebrow mb-1">Quotation For:</div>
       <div class="fw-bold fs-5">{{ quotation.customer.company_name }}</div>
       <div>Attn: {{ quotation.customer.user.get_full_name|default:quotation.customer.user.username }}</div>
       <div class="text-muted small">{{ quotation.customer.user.email }}</div>

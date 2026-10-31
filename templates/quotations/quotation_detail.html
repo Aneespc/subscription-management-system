@@ -33,14 +33,14 @@
       <div class="card-body">
         <div class="row g-4">
           <div class="col-sm-6">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Prepared for</div>
+            <div class="eyebrow mb-1">Prepared for</div>
             <div class="fw-bold">{{ quotation.customer.company_name }}</div>
             <div class="small text-muted">{{ quotation.customer.user.get_full_name }} &middot; {{ quotation.customer.contact_email }}</div>
             <div class="small text-muted">{{ quotation.customer.phone|default:"" }}</div>
             <div class="small text-muted">{{ quotation.customer.address|linebreaksbr }}</div>
           </div>
           <div class="col-sm-6">
-            <div class="small text-muted text-uppercase fw-semibold mb-1">Plan &amp; terms</div>
+            <div class="eyebrow mb-1">Plan &amp; terms</div>
             <div class="fw-bold">{{ quotation.plan.name|default:"No plan assigned" }}</div>
             {% if quotation.plan %}<div class="small text-muted">${{ quotation.plan.price|floatformat:2|intcomma }} per {{ quotation.plan.get_billing_interval_display|lower }} &middot; minimum {{ quotation.plan.minimum_quantity }}</div>{% endif %}
             <div class="small text-muted mt-1">Payment terms: <strong>{{ quotation.get_payment_terms_display }}</strong></div>
