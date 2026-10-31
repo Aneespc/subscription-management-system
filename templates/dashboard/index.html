@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Dashboard{% endblock %}
 {% block header_title %}Dashboard{% endblock %}
@@ -20,14 +21,14 @@
 
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card stat-card success"><div class="icon"><i class="bi bi-card-checklist"></i></div><div class="label">Active subscriptions</div><div class="value">{{ summary.active_subscriptions|intcomma }}</div><div class="hint">{{ summary.paused_subscriptions }} paused · {{ summary.total_subscriptions|intcomma }} total</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card primary"><div class="icon"><i class="bi bi-cash-stack"></i></div><div class="label">Revenue received</div><div class="value">${{ summary.revenue_received|floatformat:2|intcomma }}</div><div class="hint">{{ summary.payments_count }} payment{{ summary.payments_count|pluralize }} in range</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card warning"><div class="icon"><i class="bi bi-wallet2"></i></div><div class="label">Still owed</div><div class="value">${{ summary.outstanding_amount|floatformat:2|intcomma }}</div><div class="hint">{{ summary.outstanding_invoices }} confirmed invoice{{ summary.outstanding_invoices|pluralize }} unpaid</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card danger"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="label">Overdue invoices</div><div class="value">{{ summary.overdue_invoices }}</div><div class="hint">${{ summary.overdue_amount|floatformat:2|intcomma }} past due</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card primary"><div class="icon"><i class="bi bi-cash-stack"></i></div><div class="label">Revenue received</div><div class="value">{{ summary.revenue_received|money }}</div><div class="hint">{{ summary.payments_count }} payment{{ summary.payments_count|pluralize }} in range</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card warning"><div class="icon"><i class="bi bi-wallet2"></i></div><div class="label">Still owed</div><div class="value">{{ summary.outstanding_amount|money }}</div><div class="hint">{{ summary.outstanding_invoices }} confirmed invoice{{ summary.outstanding_invoices|pluralize }} unpaid</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card danger"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="label">Overdue invoices</div><div class="value">{{ summary.overdue_invoices }}</div><div class="hint">{{ summary.overdue_amount|money }} past due</div></div></div>
 </div>
 
 <div class="row g-3 mb-4">
   <div class="col-md-4"><div class="card stat-card dark"><div class="label">Invoices in range</div><div class="value">{{ summary.total_invoices|intcomma }}</div><div class="hint">{{ summary.draft_invoices }} draft awaiting confirmation</div></div></div>
-  <div class="col-md-4"><div class="card stat-card success"><div class="label">Paid invoices in range</div><div class="value">${{ summary.paid_amount|floatformat:2|intcomma }}</div></div></div>
+  <div class="col-md-4"><div class="card stat-card success"><div class="label">Paid invoices in range</div><div class="value">{{ summary.paid_amount|money }}</div></div></div>
   <div class="col-md-4"><div class="card stat-card info"><div class="label">Customers</div><div class="value">{{ summary.total_customers|intcomma }}</div></div></div>
 </div>
 
@@ -45,7 +46,7 @@
                 <td>{{ inv.customer.company_name }}</td>
                 <td>{{ inv.due_date|date:"M d, Y" }}</td>
                 <td class="num text-danger fw-semibold">{{ inv.days_late }}</td>
-                <td class="num fw-semibold">${{ inv.outstanding|floatformat:2|intcomma }}</td>
+                <td class="num fw-semibold">{{ inv.outstanding|money }}</td>
                 <td class="text-end"><a href="{% url 'payments:record' inv.pk %}" class="btn btn-sm btn-outline-primary">Record payment</a></td>
               </tr>
             {% empty %}
@@ -64,7 +65,7 @@
           <thead><tr><th>Method</th><th class="num">Payments</th><th class="num">Amount</th></tr></thead>
           <tbody>
             {% for row in payments_by_method %}
-              <tr><td>{{ row.label }}</td><td class="num">{{ row.count }}</td><td class="num fw-semibold">${{ row.total|floatformat:2|intcomma }}</td></tr>
+              <tr><td>{{ row.label }}</td><td class="num">{{ row.count }}</td><td class="num fw-semibold">{{ row.total|money }}</td></tr>
             {% empty %}
               <tr><td colspan="3" class="text-muted small text-center py-4">No payments in this range.</td></tr>
             {% endfor %}
@@ -109,7 +110,7 @@
                 <td><a href="{% url 'invoicing:invoice_detail' p.invoice_id %}">{{ p.invoice.invoice_number }}</a></td>
                 <td>{{ p.get_payment_method_display }}</td>
                 <td>{{ p.payment_date|date:"M d, Y" }}</td>
-                <td class="num fw-semibold text-success">${{ p.amount|floatformat:2|intcomma }}</td>
+                <td class="num fw-semibold text-success">{{ p.amount|money }}</td>
               </tr>
             {% empty %}<tr><td colspan="5" class="text-muted small text-center py-4">No payments in this range.</td></tr>{% endfor %}
           </tbody>

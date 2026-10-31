@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Quote templates{% endblock %}
 {% block header_title %}Quote templates{% endblock %}
@@ -16,7 +17,7 @@
             <h5 class="fw-bold mb-0">{{ t.name }}</h5>
             {% if t.is_active %}<span class="badge-status badge-active">Active</span>{% else %}<span class="badge-status badge-inactive">Inactive</span>{% endif %}
           </div>
-          <div class="small text-muted mb-2"><i class="bi bi-collection me-1"></i>{{ t.plan.name }} &middot; ${{ t.plan.price|floatformat:2|intcomma }} / {{ t.plan.get_billing_interval_display|lower }} &middot; valid {{ t.validity_days }} days</div>
+          <div class="small text-muted mb-2"><i class="bi bi-collection me-1"></i>{{ t.plan.name }} &middot; {{ t.plan.price|money }} / {{ t.plan.get_billing_interval_display|lower }} &middot; valid {{ t.validity_days }} days</div>
           {% if t.description %}<p class="small text-muted">{{ t.description|truncatechars:120 }}</p>{% endif %}
           <ul class="list-unstyled small mb-3">
             {% for line in t.template_lines.all %}

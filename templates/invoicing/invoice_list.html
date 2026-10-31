@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Invoices{% endblock %}
 {% block header_title %}{% if is_staff_user %}Invoices{% else %}My invoices{% endif %}{% endblock %}
@@ -11,9 +12,9 @@
 </div>
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card stat-card dark"><div class="label">Invoices</div><div class="value">{{ kpis.total }}</div><div class="hint">{{ kpis.draft }} draft</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card warning"><div class="label">Outstanding</div><div class="value">${{ kpis.outstanding|default:0|floatformat:2|intcomma }}</div><div class="hint">Confirmed, not yet paid</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card warning"><div class="label">Outstanding</div><div class="value">{{ kpis.outstanding|default:0|money }}</div><div class="hint">Confirmed, not yet paid</div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card stat-card danger"><div class="label">Overdue</div><div class="value">{{ kpis.overdue }}</div><div class="hint">Past due date</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card success"><div class="label">Paid</div><div class="value">${{ kpis.paid|default:0|floatformat:2|intcomma }}</div><div class="hint">Settled invoices</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card success"><div class="label">Paid</div><div class="value">{{ kpis.paid|default:0|money }}</div><div class="hint">Settled invoices</div></div></div>
 </div>
 <div class="card mb-4"><div class="card-body py-3">
   <form method="get" class="row g-2 align-items-end">
@@ -41,7 +42,7 @@
           <td>{{ invoice.issue_date|date:"M d, Y" }}</td>
           <td>{{ invoice.due_date|date:"M d, Y" }}{% if invoice.is_overdue %} <span class="badge bg-danger ms-1">Overdue</span>{% endif %}</td>
           <td><span class="badge-status badge-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span></td>
-          <td class="num fw-semibold">${{ invoice.total_amount|floatformat:2|intcomma }}</td>
+          <td class="num fw-semibold">{{ invoice.total_amount|money }}</td>
           <td class="text-end"><div class="btn-group btn-group-sm">
             <a href="{% url 'invoicing:invoice_detail' invoice.pk %}" class="btn btn-light" title="View"><i class="bi bi-eye"></i></a>
             {% if is_staff_user and invoice.status == 'CONFIRMED' %}<a href="{% url 'payments:record' invoice.pk %}" class="btn btn-light" title="Record payment"><i class="bi bi-cash-coin"></i></a>{% endif %}

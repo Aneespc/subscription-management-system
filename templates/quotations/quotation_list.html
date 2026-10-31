@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Quotations{% endblock %}
 {% block header_title %}Quotations{% endblock %}
@@ -37,7 +38,7 @@
           <td>{{ q.issue_date|date:"M d, Y" }}</td>
           <td>{{ q.expiry_date|date:"M d, Y" }}{% if q.is_expired %} <span class="badge bg-danger-subtle text-danger ms-1">Expired</span>{% elif q.days_remaining is not None and q.days_remaining <= 7 and q.status == 'QUOTATION' %} <span class="badge bg-warning-subtle text-warning-emphasis ms-1">{{ q.days_remaining }}d left</span>{% endif %}</td>
           <td><span class="badge-status badge-{{ q.status|lower }}">{{ q.get_status_display }}</span></td>
-          <td class="num fw-semibold">${{ q.total_amount|floatformat:2|intcomma }}</td>
+          <td class="num fw-semibold">{{ q.total_amount|money }}</td>
           <td class="text-end"><div class="btn-group btn-group-sm"><a href="{% url 'quotations:detail' q.pk %}" class="btn btn-light" title="View"><i class="bi bi-eye"></i></a>{% if q.can_edit %}<a href="{% url 'quotations:edit' q.pk %}" class="btn btn-light" title="Edit"><i class="bi bi-pencil"></i></a>{% endif %}<a href="{% url 'quotations:print' q.pk %}" target="_blank" class="btn btn-light" title="Print"><i class="bi bi-printer"></i></a></div></td>
         </tr>
       {% empty %}

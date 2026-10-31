@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}{{ subscription.subscription_number }}{% endblock %}
 {% block header_title %}Subscription{% endblock %}
@@ -77,7 +78,7 @@
           <div class="col-sm-6">
             <div class="eyebrow mb-1">Plan</div>
             <div class="fw-bold">{{ subscription.plan.name }}</div>
-            <div class="small text-muted">${{ subscription.plan.price|floatformat:2|intcomma }} per {{ subscription.plan.get_billing_interval_display|lower }} &middot; minimum {{ subscription.plan.minimum_quantity }} unit{{ subscription.plan.minimum_quantity|pluralize }}</div>
+            <div class="small text-muted">{{ subscription.plan.price|money }} per {{ subscription.plan.get_billing_interval_display|lower }} &middot; minimum {{ subscription.plan.minimum_quantity }} unit{{ subscription.plan.minimum_quantity|pluralize }}</div>
             <div class="mt-2">
               {% if subscription.meets_minimum_quantity %}
                 <span class="badge bg-success-subtle text-success border"><i class="bi bi-check-circle me-1"></i>Quantity {{ subscription.total_quantity }} / {{ subscription.plan.minimum_quantity }} minimum</span>
@@ -110,7 +111,7 @@
         <div class="row-item"><span>Payment terms</span><span>{{ subscription.get_payment_terms_display }}</span></div>
         <div class="mt-3 p-3 rounded-3" style="background:var(--canvas-soft);">
           <div class="small text-muted">Recurring amount (before tax)</div>
-          <div class="fs-3 fw-bold text-primary">${{ subscription.total_amount|floatformat:2|intcomma }} <small class="fs-6 text-muted fw-normal">/ {{ subscription.plan.get_billing_interval_display|lower }}</small></div>
+          <div class="fs-3 fw-bold text-primary">{{ subscription.total_amount|money }} <small class="fs-6 text-muted fw-normal">/ {{ subscription.plan.get_billing_interval_display|lower }}</small></div>
         </div>
       </div>
     </div>
@@ -127,17 +128,17 @@
           <tr>
             <td class="text-muted">{{ forloop.counter }}</td>
             <td><div class="fw-semibold">{{ line.product.name }}</div><div class="small text-muted">{{ line.product.get_product_type_display }}</div></td>
-            <td>{% if line.variant %}<span class="badge bg-info-subtle text-info border">{{ line.variant.attribute_name }}: {{ line.variant.attribute_value }} (+${{ line.variant.price_extra }})</span>{% else %}<span class="text-muted small">Standard</span>{% endif %}</td>
+            <td>{% if line.variant %}<span class="badge bg-info-subtle text-info border">{{ line.variant.attribute_name }}: {{ line.variant.attribute_value }} (+{{ line.variant.price_extra|money }})</span>{% else %}<span class="text-muted small">Standard</span>{% endif %}</td>
             <td class="text-center">{{ line.quantity }}</td>
-            <td class="num">${{ line.unit_price|floatformat:2|intcomma }}</td>
+            <td class="num">{{ line.unit_price|money }}</td>
             <td class="num">{{ line.tax_rate }}%</td>
-            <td class="num fw-semibold">${{ line.amount|floatformat:2|intcomma }}</td>
+            <td class="num fw-semibold">{{ line.amount|money }}</td>
           </tr>
         {% empty %}
           <tr><td colspan="7" class="text-center text-muted py-4">No product lines on this subscription.</td></tr>
         {% endfor %}
       </tbody>
-      <tfoot><tr class="table-light"><td colspan="6" class="text-end fw-semibold">Total per cycle</td><td class="num fw-bold">${{ subscription.total_amount|floatformat:2|intcomma }}</td></tr></tfoot>
+      <tfoot><tr class="table-light"><td colspan="6" class="text-end fw-semibold">Total per cycle</td><td class="num fw-bold">{{ subscription.total_amount|money }}</td></tr></tfoot>
     </table>
   </div>
 </div>
@@ -155,7 +156,7 @@
             <td>{{ inv.issue_date|date:"M d, Y" }}</td>
             <td>{{ inv.due_date|date:"M d, Y" }}{% if inv.is_overdue %} <span class="badge bg-danger ms-1">Overdue</span>{% endif %}</td>
             <td><span class="badge-status badge-{{ inv.status|lower }}">{{ inv.get_status_display }}</span></td>
-            <td class="num fw-semibold">${{ inv.total_amount|floatformat:2|intcomma }}</td>
+            <td class="num fw-semibold">{{ inv.total_amount|money }}</td>
           </tr>
         {% empty %}
           <tr><td colspan="6" class="text-center text-muted py-4">No invoices yet. Invoices are created on billing day.</td></tr>

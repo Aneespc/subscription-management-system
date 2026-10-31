@@ -43,7 +43,7 @@ def record_payment(invoice, amount, method, recorded_by, payment_date=None, note
             )
         outstanding = calculate_outstanding(invoice)
         if amount > outstanding:
-            raise PaymentError(f"Amount {amount} exceeds the outstanding balance of {outstanding}.")
+            raise PaymentError(f"Amount ₹{amount} exceeds the outstanding balance of ₹{outstanding}.")
         payment = Payment.objects.create(
             payment_number=f"TMP-{timezone.now().timestamp()}",
             invoice=invoice,

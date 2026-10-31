@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}{{ quotation.quotation_number }}{% endblock %}
 {% block header_title %}Quotation{% endblock %}
@@ -42,7 +43,7 @@
           <div class="col-sm-6">
             <div class="eyebrow mb-1">Plan &amp; terms</div>
             <div class="fw-bold">{{ quotation.plan.name|default:"No plan assigned" }}</div>
-            {% if quotation.plan %}<div class="small text-muted">${{ quotation.plan.price|floatformat:2|intcomma }} per {{ quotation.plan.get_billing_interval_display|lower }} &middot; minimum {{ quotation.plan.minimum_quantity }}</div>{% endif %}
+            {% if quotation.plan %}<div class="small text-muted">{{ quotation.plan.price|money }} per {{ quotation.plan.get_billing_interval_display|lower }} &middot; minimum {{ quotation.plan.minimum_quantity }}</div>{% endif %}
             <div class="small text-muted mt-1">Payment terms: <strong>{{ quotation.get_payment_terms_display }}</strong></div>
             {% if quotation.template %}<div class="small text-muted">Template: {{ quotation.template.name }}</div>{% endif %}
             {% if quotation.created_by %}<div class="small text-muted">Prepared by {{ quotation.created_by.get_full_name|default:quotation.created_by.username }}</div>{% endif %}
@@ -55,9 +56,9 @@
     <div class="card h-100">
       <div class="card-header">Totals</div>
       <div class="card-body detail-list">
-        <div class="row-item"><span>Subtotal</span><span>${{ quotation.subtotal|floatformat:2|intcomma }}</span></div>
-        <div class="row-item"><span>Tax</span><span>${{ quotation.tax_amount|floatformat:2|intcomma }}</span></div>
-        <div class="row-item"><span>Total</span><span class="fs-4 text-primary">${{ quotation.total_amount|floatformat:2|intcomma }}</span></div>
+        <div class="row-item"><span>Subtotal</span><span>{{ quotation.subtotal|money }}</span></div>
+        <div class="row-item"><span>Tax</span><span>{{ quotation.tax_amount|money }}</span></div>
+        <div class="row-item"><span>Total</span><span class="fs-4 text-primary">{{ quotation.total_amount|money }}</span></div>
         <div class="row-item"><span>Valid until</span><span>{{ quotation.expiry_date|date:"M d, Y" }}</span></div>
       </div>
     </div>
@@ -74,20 +75,20 @@
           <tr>
             <td class="text-muted">{{ forloop.counter }}</td>
             <td><div class="fw-semibold">{{ line.product.name }}</div><div class="small text-muted">{{ line.product.get_product_type_display }}</div></td>
-            <td>{% if line.variant %}<span class="badge bg-info-subtle text-info border">{{ line.variant.attribute_name }}: {{ line.variant.attribute_value }} (+${{ line.variant.price_extra }})</span>{% else %}<span class="text-muted small">Standard</span>{% endif %}</td>
+            <td>{% if line.variant %}<span class="badge bg-info-subtle text-info border">{{ line.variant.attribute_name }}: {{ line.variant.attribute_value }} (+{{ line.variant.price_extra|money }})</span>{% else %}<span class="text-muted small">Standard</span>{% endif %}</td>
             <td class="text-center">{{ line.quantity }}</td>
-            <td class="num">${{ line.unit_price|floatformat:2|intcomma }}</td>
+            <td class="num">{{ line.unit_price|money }}</td>
             <td class="num">{{ line.tax_rate }}%</td>
-            <td class="num fw-semibold">${{ line.amount|floatformat:2|intcomma }}</td>
+            <td class="num fw-semibold">{{ line.amount|money }}</td>
           </tr>
         {% empty %}
           <tr><td colspan="7" class="text-center text-muted py-4">No lines on this quotation.</td></tr>
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr class="table-light"><td colspan="6" class="text-end">Subtotal</td><td class="num">${{ quotation.subtotal|floatformat:2|intcomma }}</td></tr>
-        <tr class="table-light"><td colspan="6" class="text-end">Tax</td><td class="num">${{ quotation.tax_amount|floatformat:2|intcomma }}</td></tr>
-        <tr class="table-light"><td colspan="6" class="text-end fw-bold">Total</td><td class="num fw-bold">${{ quotation.total_amount|floatformat:2|intcomma }}</td></tr>
+        <tr class="table-light"><td colspan="6" class="text-end">Subtotal</td><td class="num">{{ quotation.subtotal|money }}</td></tr>
+        <tr class="table-light"><td colspan="6" class="text-end">Tax</td><td class="num">{{ quotation.tax_amount|money }}</td></tr>
+        <tr class="table-light"><td colspan="6" class="text-end fw-bold">Total</td><td class="num fw-bold">{{ quotation.total_amount|money }}</td></tr>
       </tfoot>
     </table>
   </div>

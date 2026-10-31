@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Subscribe to {{ plan.name }}{% endblock %}
 {% block header_title %}Subscribe{% endblock %}
@@ -53,7 +54,7 @@
         <div class="card-body">
           <div class="eyebrow mb-1">Plan</div>
           <div class="h3 mb-2">{{ plan.name }}</div>
-          <div class="price mb-3" style="font-size:26px;letter-spacing:-0.26px;">${{ plan.price|floatformat:2|intcomma }} <small class="text-muted" style="font-size:13px;">/ {{ plan.get_billing_interval_display|lower }}</small></div>
+          <div class="price mb-3" style="font-size:26px;letter-spacing:-0.26px;">{{ plan.price|money }} <small class="text-muted" style="font-size:13px;">/ {{ plan.get_billing_interval_display|lower }}</small></div>
           <div class="detail-list mb-3">
             <div class="row-item"><span>Billing</span><span>{{ plan.get_billing_interval_display }}</span></div>
             <div class="row-item"><span>Minimum quantity</span><span>{{ plan.minimum_quantity }}</span></div>

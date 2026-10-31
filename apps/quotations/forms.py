@@ -17,7 +17,7 @@ class IgnoreBlankLineMixin:
 
 def variant_choices(queryset):
     return [("", "No variant")] + [
-        (v.pk, f"{v.product.name} - {v.attribute_name}: {v.attribute_value} (+{v.price_extra})") for v in queryset
+        (v.pk, f"{v.product.name} - {v.attribute_name}: {v.attribute_value} (+₹{v.price_extra})") for v in queryset
     ]
 
 

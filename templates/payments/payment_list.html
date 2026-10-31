@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Payments{% endblock %}
 {% block header_title %}Payments{% endblock %}
@@ -8,9 +9,9 @@
   <a href="{% url 'invoicing:invoice_list' %}?status=CONFIRMED" class="btn btn-primary"><i class="bi bi-cash-coin me-1"></i>Record a payment</a>
 </div>
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card success"><div class="icon"><i class="bi bi-cash-stack"></i></div><div class="label">Received, all time</div><div class="value">${{ kpis.total|default:0|floatformat:2|intcomma }}</div><div class="hint">{{ kpis.count }} payment{{ kpis.count|pluralize }}</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card primary"><div class="icon"><i class="bi bi-calendar-check"></i></div><div class="label">Received this month</div><div class="value">${{ kpis.month|default:0|floatformat:2|intcomma }}</div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card stat-card danger"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="label">Overdue invoices</div><div class="value">{{ kpis.overdue_count }}</div><div class="hint">${{ kpis.overdue_amount|default:0|floatformat:2|intcomma }} outstanding</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card success"><div class="icon"><i class="bi bi-cash-stack"></i></div><div class="label">Received, all time</div><div class="value">{{ kpis.total|default:0|money }}</div><div class="hint">{{ kpis.count }} payment{{ kpis.count|pluralize }}</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card primary"><div class="icon"><i class="bi bi-calendar-check"></i></div><div class="label">Received this month</div><div class="value">{{ kpis.month|default:0|money }}</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card stat-card danger"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="label">Overdue invoices</div><div class="value">{{ kpis.overdue_count }}</div><div class="hint">{{ kpis.overdue_amount|default:0|money }} outstanding</div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card stat-card warning"><div class="icon"><i class="bi bi-hourglass-split"></i></div><div class="label">Awaiting payment</div><div class="value">{{ open_invoices|length }}</div><div class="hint">Oldest confirmed invoices below</div></div></div>
 </div>
 <div class="row g-4">
@@ -35,7 +36,7 @@
               <td>{{ p.invoice.customer.company_name }}</td>
               <td><span class="badge bg-light text-dark border">{{ p.get_payment_method_display }}</span></td>
               <td>{{ p.payment_date|date:"M d, Y H:i" }}</td>
-              <td class="num fw-semibold text-success">${{ p.amount|floatformat:2|intcomma }}</td>
+              <td class="num fw-semibold text-success">{{ p.amount|money }}</td>
               <td class="small text-muted">{{ p.recorded_by.get_full_name|default:p.recorded_by.username }}</td>
             </tr>
           {% empty %}

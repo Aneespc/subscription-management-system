@@ -94,7 +94,7 @@ class Discount(models.Model):
     def __str__(self):
         if self.discount_type == self.DiscountType.PERCENTAGE:
             return f"{self.name} ({self.value}%)"
-        return f"{self.name} (${self.value})"
+        return f"{self.name} (₹{self.value})"
 
     def clean(self):
         super().clean()
@@ -178,5 +178,5 @@ class DiscountUsage(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.discount.name} on Invoice {self.invoice_id} (${self.discount_amount})"
+        return f"{self.discount.name} on Invoice {self.invoice_id} (₹{self.discount_amount})"
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Products{% endblock %}
 {% block header_title %}Products{% endblock %}
@@ -25,8 +26,8 @@
         <tr>
           <td><a href="{% url 'products:edit' p.pk %}" class="fw-semibold">{{ p.name }}</a>{% if p.notes %}<div class="small text-muted">{{ p.notes|truncatechars:60 }}</div>{% endif %}</td>
           <td><span class="badge bg-light text-dark border">{{ p.get_product_type_display }}</span></td>
-          <td class="num fw-semibold">${{ p.sales_price|floatformat:2|intcomma }}</td>
-          <td class="num text-muted">${{ p.cost_price|floatformat:2|intcomma }}</td>
+          <td class="num fw-semibold">{{ p.sales_price|money }}</td>
+          <td class="num text-muted">{{ p.cost_price|money }}</td>
           <td>{% if p.tax %}<span class="badge bg-light text-dark border">{{ p.tax.name }} {{ p.tax.rate }}%</span>{% else %}<span class="text-muted">None</span>{% endif %}</td>
           <td class="text-center">{{ p.variant_count }}</td>
           <td>{% if p.is_active %}<span class="badge-status badge-active">Active</span>{% else %}<span class="badge-status badge-inactive">Inactive</span>{% endif %}</td>

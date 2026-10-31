@@ -272,7 +272,7 @@ class InvoiceService:
         if not recipient_email:
             raise ValidationError(f"No email address on file for {invoice.customer}.")
         lines = "\n".join(
-            f"  - {line.description} x {line.quantity} @ {line.unit_price} = {line.amount}"
+            f"  - {line.description} x {line.quantity} @ ₹{line.unit_price} = ₹{line.amount}"
             for line in invoice.lines.all()
         )
         body = (
@@ -280,8 +280,8 @@ class InvoiceService:
             f"Invoice {invoice.invoice_number} for the period "
             f"{invoice.billing_period_start} to {invoice.billing_period_end}:\n\n"
             f"{lines}\n\n"
-            f"Subtotal: {invoice.subtotal}\nDiscount: {invoice.discount_amount}\nTax: {invoice.tax_amount}\n"
-            f"Amount due: {invoice.total_amount}\nDue date: {invoice.due_date}\n\n"
+            f"Subtotal: ₹{invoice.subtotal}\nDiscount: ₹{invoice.discount_amount}\nTax: ₹{invoice.tax_amount}\n"
+            f"Amount due: ₹{invoice.total_amount}\nDue date: {invoice.due_date}\n\n"
             "Thank you for choosing Brightloop Software.\n"
         )
         EmailMessage(

@@ -105,7 +105,7 @@ class DiscountModelAndServiceTests(TestCase):
         calc_pct = DiscountService.calculate(pct_discount, subtotal=subtotal)
         self.assertEqual(calc_pct, Decimal("40.00"))
         fixed_discount = Discount.objects.create(
-            name="$30 Off",
+            name="₹30 Off",
             discount_type=Discount.DiscountType.FIXED,
             value=Decimal("30.00"),
             start_date=self.today,
@@ -115,7 +115,7 @@ class DiscountModelAndServiceTests(TestCase):
         calc_fixed = DiscountService.calculate(fixed_discount, subtotal=subtotal)
         self.assertEqual(calc_fixed, Decimal("30.00"))
         big_fixed = Discount.objects.create(
-            name="Huge $250 Off",
+            name="Huge ₹250 Off",
             discount_type=Discount.DiscountType.FIXED,
             value=Decimal("250.00"),
             start_date=self.today,

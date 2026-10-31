@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 
 {% block title %}Discounts Management{% endblock %}
 
@@ -58,7 +59,7 @@
             <td>
               <span class="fw-bold">{{ discount.name }}</span>
               {% if discount.minimum_purchase %}
-                <span class="text-muted d-block small">Min Purchase: ${{ discount.minimum_purchase }}</span>
+                <span class="text-muted d-block small">Min Purchase: {{ discount.minimum_purchase|money }}</span>
               {% endif %}
               {% if discount.minimum_quantity %}
                 <span class="text-muted d-block small">Min Qty: {{ discount.minimum_quantity }} item(s)</span>
@@ -68,7 +69,7 @@
               {% if discount.discount_type == 'PERCENTAGE' %}
                 <span class="badge bg-info text-dark fs-6">{{ discount.value }}%</span>
               {% else %}
-                <span class="badge bg-success fs-6">${{ discount.value }}</span>
+                <span class="badge bg-success fs-6">{{ discount.value|money }}</span>
               {% endif %}
             </td>
             <td>

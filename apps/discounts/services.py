@@ -166,7 +166,7 @@ class DiscountService:
             locked_discount.refresh_from_db(fields=["usage_count"])
 
             logger.info(
-                f"Applied discount '{locked_discount.name}' (${amount}) to invoice {invoice.invoice_number}. "
+                f"Applied discount '{locked_discount.name}' (₹{amount}) to invoice {invoice.invoice_number}. "
                 f"Usage count is now {locked_discount.usage_count}."
             )
             return usage

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Quote from template{% endblock %}
 {% block header_title %}Quote from template{% endblock %}
@@ -25,7 +26,7 @@
         <div class="col-md-6">
           <div class="card h-100"><div class="card-body">
             <div class="d-flex justify-content-between align-items-start"><h6 class="fw-bold mb-1">{{ t.name }}</h6><span class="badge bg-primary-subtle text-primary border">{{ t.validity_days }} days</span></div>
-            <div class="small text-muted mb-2">{{ t.plan.name }} &middot; ${{ t.plan.price|floatformat:2|intcomma }}</div>
+            <div class="small text-muted mb-2">{{ t.plan.name }} &middot; {{ t.plan.price|money }}</div>
             <ul class="list-unstyled small mb-0">
               {% for line in t.template_lines.all %}<li class="d-flex justify-content-between"><span>{{ line.product.name }}{% if line.variant %} ({{ line.variant.attribute_value }}){% endif %}</span><span class="text-muted">× {{ line.quantity }}</span></li>{% endfor %}
             </ul>

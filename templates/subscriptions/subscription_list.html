@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Subscriptions{% endblock %}
 {% block header_title %}{% if is_staff_user %}Subscriptions{% else %}My subscriptions{% endif %}{% endblock %}
@@ -58,7 +59,7 @@
           <td>{{ sub.expiry_date|date:"M d, Y"|default:"Ongoing" }}</td>
           <td>{% if sub.status == 'ACTIVE' %}<span class="fw-semibold text-primary">{{ sub.next_billing_date|date:"M d, Y"|default:"Pending" }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td><span class="badge-status badge-{{ sub.status|lower }}">{{ sub.get_status_display }}</span></td>
-          <td class="num fw-semibold">${{ sub.total_amount|default:0|floatformat:2|intcomma }}</td>
+          <td class="num fw-semibold">{{ sub.total_amount|default:0|money }}</td>
           <td class="text-end"><div class="btn-group btn-group-sm"><a href="{% url 'subscriptions:detail' sub.pk %}" class="btn btn-light" title="View"><i class="bi bi-eye"></i></a>{% if is_staff_user %}<a href="{% url 'subscriptions:edit' sub.pk %}" class="btn btn-light" title="Edit"><i class="bi bi-pencil"></i></a>{% endif %}</div></td>
         </tr>
       {% empty %}

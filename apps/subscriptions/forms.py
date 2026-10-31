@@ -62,7 +62,7 @@ class SubscriptionLineForm(IgnoreBlankLineMixin, forms.ModelForm):
         self.fields["variant"].queryset = ProductVariant.objects.select_related("product").order_by("product__name")
         self.fields["unit_price"].required = False
         self.fields["variant"].widget.choices = [("", "No variant")] + [
-            (v.pk, f"{v.product.name} - {v.attribute_name}: {v.attribute_value} (+{v.price_extra})")
+            (v.pk, f"{v.product.name} - {v.attribute_name}: {v.attribute_value} (+₹{v.price_extra})")
             for v in self.fields["variant"].queryset
         ]
 
@@ -120,11 +120,11 @@ class CheckoutLineForm(IgnoreBlankLineMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["product"].queryset = Product.objects.filter(is_active=True).select_related("tax").order_by("name")
         self.fields["product"].widget.choices = [("", "Choose a product")] + [
-            (p.pk, f"{p.name} - {p.sales_price}") for p in self.fields["product"].queryset
+            (p.pk, f"{p.name} - ₹{p.sales_price}") for p in self.fields["product"].queryset
         ]
         self.fields["variant"].queryset = ProductVariant.objects.select_related("product").order_by("product__name")
         self.fields["variant"].widget.choices = [("", "No variant")] + [
-            (v.pk, f"{v.attribute_name}: {v.attribute_value} (+{v.price_extra})") for v in self.fields["variant"].queryset
+            (v.pk, f"{v.attribute_name}: {v.attribute_value} (+₹{v.price_extra})") for v in self.fields["variant"].queryset
         ]
 
     def clean(self):

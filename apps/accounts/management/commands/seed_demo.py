@@ -100,7 +100,7 @@ class Command(BaseCommand):
 
         for data in [
             {"name": "Welcome 20% Off", "discount_type": "PERCENTAGE", "value": Decimal("20.00"), "minimum_purchase": Decimal("500.00"), "start_date": today - timedelta(days=30), "end_date": today + timedelta(days=335), "usage_limit": 100, "applies_to": "SUBSCRIPTIONS"},
-            {"name": "Volume Seats $150 Off", "discount_type": "FIXED", "value": Decimal("150.00"), "minimum_quantity": 5, "start_date": today - timedelta(days=10), "end_date": today + timedelta(days=180), "usage_limit": 50, "applies_to": "SUBSCRIPTIONS"},
+            {"name": "Volume Seats ₹150 Off", "discount_type": "FIXED", "value": Decimal("150.00"), "minimum_quantity": 5, "start_date": today - timedelta(days=10), "end_date": today + timedelta(days=180), "usage_limit": 50, "applies_to": "SUBSCRIPTIONS"},
             {"name": "Expired Flash Sale", "discount_type": "PERCENTAGE", "value": Decimal("30.00"), "start_date": today - timedelta(days=90), "end_date": today - timedelta(days=10), "usage_limit": 10, "applies_to": "SUBSCRIPTIONS"},
         ]:
             Discount.objects.get_or_create(name=data["name"], defaults={**data, "created_by": admin})

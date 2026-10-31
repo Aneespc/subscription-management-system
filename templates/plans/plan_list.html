@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Plans{% endblock %}
 {% block header_title %}Plans{% endblock %}
@@ -21,7 +22,7 @@
       {% for plan in plans %}
         <tr>
           <td><a href="{% url 'plans:edit' plan.pk %}" class="fw-semibold">{{ plan.name }}</a></td>
-          <td class="num fw-semibold">${{ plan.price|floatformat:2|intcomma }}</td>
+          <td class="num fw-semibold">{{ plan.price|money }}</td>
           <td><span class="badge bg-light text-dark border">{{ plan.get_billing_interval_display }}</span></td>
           <td class="text-center">{{ plan.minimum_quantity }}</td>
           <td class="small">{% if plan.available_from or plan.available_until %}{{ plan.available_from|date:"M d, Y"|default:"…" }} – {{ plan.available_until|date:"M d, Y"|default:"…" }}{% else %}<span class="text-muted">Always</span>{% endif %}</td>

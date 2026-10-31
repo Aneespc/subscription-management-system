@@ -51,7 +51,7 @@
               {% if form.value.errors %}
                 <div class="text-danger small mt-1">{{ form.value.errors|join:", " }}</div>
               {% endif %}
-              <div class="form-text small">Enter amount (e.g. 15.00 for $15 or 20.00 for 20%).</div>
+              <div class="form-text small">Enter amount (e.g. 15.00 for ₹15 or 20.00 for 20%).</div>
             </div>
           </div>
 
@@ -74,7 +74,7 @@
 
           <div class="row g-3 mb-3">
             <div class="col-md-6">
-              <label class="form-label fw-semibold">Minimum Purchase ($)</label>
+              <label class="form-label fw-semibold">Minimum Purchase (₹)</label>
               {{ form.minimum_purchase }}
               {% if form.minimum_purchase.errors %}
                 <div class="text-danger small mt-1">{{ form.minimum_purchase.errors|join:", " }}</div>

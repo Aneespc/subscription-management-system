@@ -120,6 +120,8 @@ CACHES = {
 
 MESSAGE_TAGS = {40: "danger"}
 
+CURRENCY_SYMBOL = "₹"
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = os.environ.get("DJANGO_SECURE_COOKIES", "False").lower() in ("true", "1", "yes")

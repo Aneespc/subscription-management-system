@@ -247,7 +247,7 @@ class InvoiceTaxLine(models.Model):
         ordering = ["tax_rate", "tax_name"]
 
     def __str__(self):
-        return f"{self.tax_name} ({self.tax_rate}%): ${self.tax_amount} on ${self.taxable_amount}"
+        return f"{self.tax_name} ({self.tax_rate}%): ₹{self.tax_amount} on ₹{self.taxable_amount}"
 
     def save(self, *args, **kwargs):
         self.tax_rate = Decimal(str(self.tax_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

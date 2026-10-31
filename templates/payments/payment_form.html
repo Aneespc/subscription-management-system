@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Record payment{% endblock %}
 {% block header_title %}Record payment{% endblock %}
@@ -37,9 +38,9 @@
       <div class="col-md-5">
         <div class="card"><div class="card-header">Invoice balance</div>
           <div class="card-body detail-list">
-            <div class="row-item"><span>Invoice total</span><span>${{ invoice.total_amount|floatformat:2|intcomma }}</span></div>
-            <div class="row-item"><span>Already paid</span><span class="text-success">${{ paid|floatformat:2|intcomma }}</span></div>
-            <div class="row-item"><span>Outstanding</span><span class="text-danger fs-5">${{ outstanding|floatformat:2|intcomma }}</span></div>
+            <div class="row-item"><span>Invoice total</span><span>{{ invoice.total_amount|money }}</span></div>
+            <div class="row-item"><span>Already paid</span><span class="text-success">{{ paid|money }}</span></div>
+            <div class="row-item"><span>Outstanding</span><span class="text-danger fs-5">{{ outstanding|money }}</span></div>
             <div class="row-item"><span>Status</span><span><span class="badge-status badge-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span></span></div>
           </div>
         </div>

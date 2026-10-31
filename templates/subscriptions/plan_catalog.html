@@ -1,10 +1,10 @@
 {% extends "base.html" %}
+{% load money %}
 {% load humanize %}
 {% block title %}Plans{% endblock %}
 {% block header_title %}Plans{% endblock %}
 {% block content %}
 <div class="text-center mb-5 pt-3">
-  <span class="pill-tag">Flexible recurring plans</span>
   <h1 class="display-xl mt-3">Pick a plan and start today.</h1>
   <p class="text-muted mx-auto" style="max-width:560px;">Choose the plan, add the products you need, and your first invoice is ready the moment you subscribe.</p>
 </div>
@@ -14,7 +14,7 @@
       <div class="card-pricing {% if plan == featured %}featured{% endif %}">
         {% if plan == featured %}<span class="pill-tag on-dark">Most complete</span>{% endif %}
         <h3 class="tier">{{ plan.name }}</h3>
-        <div class="price">${{ plan.price|floatformat:2|intcomma }}<small> / {{ plan.get_billing_interval_display|lower }}</small></div>
+        <div class="price">{{ plan.price|money }}<small> / {{ plan.get_billing_interval_display|lower }}</small></div>
         <div class="minimum">Minimum {{ plan.minimum_quantity }} unit{{ plan.minimum_quantity|pluralize }}</div>
         <ul class="policy">
           <li><i class="bi bi-calendar3"></i>Billed {{ plan.get_billing_interval_display|lower }}</li>
