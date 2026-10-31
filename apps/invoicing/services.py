@@ -1,3 +1,4 @@
+import io
 import logging
 from collections import defaultdict
 from datetime import timedelta
@@ -6,11 +7,14 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
+from django.db import models
+from django.template.loader import render_to_string
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.invoicing.models import Invoice, InvoiceLine, InvoiceTaxLine, quantize_currency
 from apps.products.models import Tax
+from apps.payments.services import calculate_outstanding
 from apps.subscriptions.models import Subscription
 
 logger = logging.getLogger(__name__)
@@ -267,27 +271,105 @@ class InvoiceService:
         return invoice
 
     @classmethod
-    def send(cls, invoice, recipient_email=None):
+    def render_pdf(cls, invoice):
+        from xhtml2pdf import pisa
+
+        html = render_to_string(
+            "invoicing/invoice_pdf.html",
+            {
+                "invoice": invoice,
+                "customer": invoice.customer,
+                "lines": invoice.lines.select_related("product"),
+                "tax_lines": invoice.tax_lines.all(),
+                "discount_usages": invoice.discount_usages.select_related("discount"),
+                "paid": invoice.total_amount - calculate_outstanding(invoice),
+                "outstanding": calculate_outstanding(invoice),
+                "now": timezone.now(),
+            },
+        )
+        buffer = io.BytesIO()
+        status = pisa.CreatePDF(html, dest=buffer, encoding="utf-8")
+        if status.err:
+            raise RuntimeError(f"Failed to render PDF (error code {status.err}).")
+        return buffer.getvalue()
+
+    EMAIL_KINDS = {
+        "invoice": ("Invoice {number} from Brightloop Software", "Please find attached invoice {number} for the period {start} to {end}."),
+        "due": ("Reminder: invoice {number} is due on {due}", "This is a friendly reminder that invoice {number} is due on {due}. The invoice is attached for your records."),
+        "overdue": ("Overdue: invoice {number} was due on {due}", "Invoice {number} was due on {due} and is still outstanding. Please arrange payment at your earliest convenience. The invoice is attached."),
+    }
+
+    @classmethod
+    def send(cls, invoice, recipient_email=None, kind="invoice"):
         recipient_email = recipient_email or invoice.customer.contact_email
         if not recipient_email:
             raise ValidationError(f"No email address on file for {invoice.customer}.")
+        subject, intro = cls.EMAIL_KINDS[kind]
+        fmt = {
+            "number": invoice.invoice_number,
+            "start": invoice.billing_period_start,
+            "end": invoice.billing_period_end,
+            "due": invoice.due_date.strftime("%d %b %Y"),
+        }
+        outstanding = calculate_outstanding(invoice)
         lines = "\n".join(
-            f"  - {line.description} x {line.quantity} @ ₹{line.unit_price} = ₹{line.amount}"
-            for line in invoice.lines.all()
+            f"  - {line.description} x {line.quantity} @ ₹{line.unit_price} = ₹{line.amount}" for line in invoice.lines.all()
         )
         body = (
-            f"Dear {invoice.customer},\n\n"
-            f"Invoice {invoice.invoice_number} for the period "
-            f"{invoice.billing_period_start} to {invoice.billing_period_end}:\n\n"
-            f"{lines}\n\n"
+            f"Dear {invoice.customer},\n\n{intro.format(**fmt)}\n\n{lines}\n\n"
             f"Subtotal: ₹{invoice.subtotal}\nDiscount: ₹{invoice.discount_amount}\nTax: ₹{invoice.tax_amount}\n"
-            f"Amount due: ₹{invoice.total_amount}\nDue date: {invoice.due_date}\n\n"
+            f"Total: ₹{invoice.total_amount}\nAmount outstanding: ₹{outstanding}\nDue date: {fmt['due']}\n\n"
             "Thank you for choosing Brightloop Software.\n"
         )
-        EmailMessage(
-            subject=f"Invoice {invoice.invoice_number} from Brightloop Software",
+        email = EmailMessage(
+            subject=subject.format(**fmt),
             body=body,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
             to=[recipient_email],
-        ).send()
+        )
+        email.attach(f"{invoice.invoice_number}.pdf", cls.render_pdf(invoice), "application/pdf")
+        email.send()
+        now = timezone.now()
+        if kind == "invoice":
+            invoice.sent_at = now
+            invoice.save(update_fields=["sent_at", "updated_at"])
+        else:
+            invoice.reminder_sent_at = now
+            invoice.reminder_count += 1
+            invoice.save(update_fields=["reminder_sent_at", "reminder_count", "updated_at"])
         return True
+
+    @classmethod
+    def send_due_notifications(cls, today=None, days_before=None, repeat_days=None):
+        from datetime import timedelta as _td
+
+        today = today or timezone.localdate()
+        days_before = settings.INVOICE_REMINDER_DAYS_BEFORE if days_before is None else days_before
+        repeat_days = settings.INVOICE_REMINDER_REPEAT_DAYS if repeat_days is None else repeat_days
+        confirmed = Invoice.objects.filter(status=Invoice.Status.CONFIRMED).select_related("customer", "customer__user")
+        result = {"invoice": 0, "due": 0, "overdue": 0, "failed": []}
+
+        def deliver(invoice, kind):
+            try:
+                cls.send(invoice, kind=kind)
+                result[kind] += 1
+            except Exception as exc:
+                logger.exception("Failed to email %s for %s", kind, invoice.invoice_number)
+                result["failed"].append({"invoice": invoice.invoice_number, "kind": kind, "error": str(exc)})
+
+        for invoice in confirmed.filter(sent_at__isnull=True).order_by("id"):
+            deliver(invoice, "invoice")
+
+        due_window_end = today + _td(days=days_before)
+        for invoice in confirmed.filter(
+            due_date__gte=today, due_date__lte=due_window_end, reminder_sent_at__isnull=True
+        ).order_by("due_date"):
+            deliver(invoice, "due")
+
+        repeat_cutoff = today - _td(days=repeat_days)
+        overdue = confirmed.filter(due_date__lt=today).filter(
+            models.Q(reminder_sent_at__isnull=True) | models.Q(reminder_sent_at__date__lte=repeat_cutoff)
+        )
+        for invoice in overdue.order_by("due_date"):
+            deliver(invoice, "overdue")
+        return result

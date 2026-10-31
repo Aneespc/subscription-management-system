@@ -1,0 +1,87 @@
+{% load money %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #0d253d; }
+  h1 { font-size: 20pt; font-weight: normal; margin: 0 0 2pt 0; color: #0d253d; }
+  .muted { color: #64748d; }
+  .brand { font-size: 14pt; color: #533afd; }
+  .status { display: inline-block; padding: 2pt 6pt; border: 1pt solid #c7d2fe; color: #4434d4; font-size: 8pt; }
+  table { width: 100%; border-collapse: collapse; }
+  table.meta td { padding: 2pt 0; vertical-align: top; }
+  table.lines th { background: #f6f9fc; color: #64748d; font-size: 8pt; text-transform: uppercase; text-align: left; padding: 6pt; border-bottom: 1pt solid #e3e8ee; }
+  table.lines td { padding: 6pt; border-bottom: 1pt solid #e3e8ee; }
+  .num { text-align: right; }
+  table.totals td { padding: 3pt 6pt; }
+  table.totals .grand td { font-size: 12pt; border-top: 1pt solid #0d253d; padding-top: 6pt; }
+  .box { border: 1pt solid #e3e8ee; padding: 8pt; }
+  .footer { margin-top: 24pt; font-size: 8pt; color: #64748d; border-top: 1pt solid #e3e8ee; padding-top: 6pt; }
+</style>
+</head>
+<body>
+  <table class="meta">
+    <tr>
+      <td width="55%"><div class="brand">Brightloop Software</div><div class="muted">Subscription invoice</div></td>
+      <td width="45%" class="num"><h1>{{ invoice.invoice_number }}</h1><span class="status">{{ invoice.get_status_display|upper }}</span></td>
+    </tr>
+  </table>
+  <br>
+  <table class="meta">
+    <tr>
+      <td width="50%">
+        <div class="muted">Billed to</div>
+        <strong>{{ customer.company_name }}</strong><br>
+        {{ customer.address|linebreaksbr }}{% if customer.address %}<br>{% endif %}
+        {{ customer.contact_email }}<br>
+        {% if customer.tax_number %}Tax number {{ customer.tax_number }}{% endif %}
+      </td>
+      <td width="50%">
+        <table class="meta">
+          <tr><td class="muted">Issue date</td><td class="num">{{ invoice.issue_date|date:"d M Y" }}</td></tr>
+          <tr><td class="muted">Due date</td><td class="num">{{ invoice.due_date|date:"d M Y" }}</td></tr>
+          <tr><td class="muted">Billing period</td><td class="num">{{ invoice.billing_period_start|date:"d M Y" }} – {{ invoice.billing_period_end|date:"d M Y" }}</td></tr>
+          {% if invoice.subscription %}<tr><td class="muted">Subscription</td><td class="num">{{ invoice.subscription.subscription_number }} ({{ invoice.subscription.plan.name }})</td></tr>
+          <tr><td class="muted">Terms</td><td class="num">{{ invoice.subscription.get_payment_terms_display }}</td></tr>{% endif %}
+        </table>
+      </td>
+    </tr>
+  </table>
+  <br>
+  <table class="lines">
+    <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Tax</th><th class="num">Discount</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+      {% for line in lines %}
+        <tr><td>{{ line.description }}</td><td class="num">{{ line.quantity }}</td><td class="num">{{ line.unit_price|money }}</td><td class="num">{{ line.tax_rate }}%</td><td class="num">{% if line.discount_amount > 0 %}-{{ line.discount_amount|money }}{% else %}—{% endif %}</td><td class="num">{{ line.amount|money }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <br>
+  <table class="meta">
+    <tr>
+      <td width="55%">
+        {% if tax_lines %}
+          <div class="muted">Tax breakdown</div>
+          <table class="meta">{% for tl in tax_lines %}<tr><td>{{ tl.tax_name }} ({{ tl.tax_rate }}%) on {{ tl.taxable_amount|money }}</td><td class="num">{{ tl.tax_amount|money }}</td></tr>{% endfor %}</table>
+        {% endif %}
+        {% if discount_usages %}
+          <br><div class="muted">Discounts applied</div>
+          <table class="meta">{% for u in discount_usages %}<tr><td>{{ u.discount.name }}</td><td class="num">-{{ u.discount_amount|money }}</td></tr>{% endfor %}</table>
+        {% endif %}
+      </td>
+      <td width="45%">
+        <table class="totals">
+          <tr><td class="muted">Subtotal</td><td class="num">{{ invoice.subtotal|money }}</td></tr>
+          <tr><td class="muted">Discount</td><td class="num">-{{ invoice.discount_amount|money }}</td></tr>
+          <tr><td class="muted">Tax</td><td class="num">{{ invoice.tax_amount|money }}</td></tr>
+          <tr class="grand"><td>Total</td><td class="num">{{ invoice.total_amount|money }}</td></tr>
+          <tr><td class="muted">Paid</td><td class="num">{{ paid|money }}</td></tr>
+          <tr><td><strong>Amount due</strong></td><td class="num"><strong>{{ outstanding|money }}</strong></td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <div class="footer">Generated {{ now|date:"d M Y H:i" }} · Brightloop Software · Questions? Reply to this email.</div>
+</body>
+</html>

@@ -16,13 +16,14 @@
   </div>
   <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'invoicing:invoice_print' invoice.pk %}" target="_blank" class="btn btn-light"><i class="bi bi-printer me-1"></i>Print</a>
+    <a href="{% url 'invoicing:invoice_pdf' invoice.pk %}" target="_blank" class="btn btn-light"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
     {% if can_pay_online %}
       <form method="post" action="{% url 'payments:razorpay_checkout' invoice.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-credit-card me-1"></i>Pay {{ outstanding|money }} now</button></form>
     {% endif %}
     {% if can_manage %}
       {% if invoice.can_confirm %}<form method="post" action="{% url 'invoicing:invoice_confirm' invoice.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-check2 me-1"></i>Confirm</button></form>{% endif %}
       {% if invoice.status == 'CONFIRMED' %}<a href="{% url 'payments:record' invoice.pk %}" class="btn btn-success"><i class="bi bi-cash-coin me-1"></i>Record payment</a>{% endif %}
-      <form method="post" action="{% url 'invoicing:invoice_send' invoice.pk %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit"><i class="bi bi-send me-1"></i>Send</button></form>
+      <form method="post" action="{% url 'invoicing:invoice_send' invoice.pk %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit"><i class="bi bi-envelope-paper me-1"></i>Email PDF</button></form>
       {% if invoice.can_cancel %}<form method="post" action="{% url 'invoicing:invoice_cancel' invoice.pk %}" data-confirm="Cancel this invoice?">{% csrf_token %}<button class="btn btn-outline-danger" type="submit"><i class="bi bi-x-circle me-1"></i>Cancel</button></form>{% endif %}
     {% endif %}
   </div>
@@ -66,6 +67,10 @@
         <div class="row-item"><span>Discount</span><span class="text-success">−{{ invoice.discount_amount|money }}</span></div>
         <div class="row-item"><span>Tax</span><span>+{{ invoice.tax_amount|money }}</span></div>
         <div class="row-item"><span>Total</span><span class="fs-4">{{ invoice.total_amount|money }}</span></div>
+        {% if can_manage %}
+          <div class="row-item"><span>Emailed</span><span>{% if invoice.sent_at %}{{ invoice.sent_at|date:"M d, Y H:i" }}{% else %}<span class="text-muted">Not yet</span>{% endif %}</span></div>
+          <div class="row-item"><span>Reminders</span><span>{% if invoice.reminder_count %}{{ invoice.reminder_count }}, last {{ invoice.reminder_sent_at|date:"M d, Y" }}{% else %}<span class="text-muted">Not yet</span>{% endif %}</span></div>
+        {% endif %}
         {% if invoice.status == 'CONFIRMED' or invoice.status == 'PAID' %}
           <div class="row-item"><span>Paid</span><span class="text-success">{{ paid|money }}</span></div>
         {% endif %}

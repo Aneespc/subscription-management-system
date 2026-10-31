@@ -28,16 +28,48 @@ services:
       ADMIN_USER: ${ADMIN_USER:?Set ADMIN_USER to the admin email}
       ADMIN_PASS: ${ADMIN_PASS:?Set ADMIN_PASS to the admin password}
       SEED_DEMO: ${SEED_DEMO:-false}
-      DJANGO_EMAIL_BACKEND: ${DJANGO_EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
-      EMAIL_HOST: ${EMAIL_HOST:-}
+      DJANGO_EMAIL_BACKEND: ${DJANGO_EMAIL_BACKEND:-}
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
       EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-billing@brightloopsoftware.com}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+      INVOICE_REMINDER_DAYS_BEFORE: ${INVOICE_REMINDER_DAYS_BEFORE:-3}
+      INVOICE_REMINDER_REPEAT_DAYS: ${INVOICE_REMINDER_REPEAT_DAYS:-7}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  scheduler:
+    build: .
+    restart: unless-stopped
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        python manage.py wait_for_db
+        while true; do
+          python manage.py generate_invoices
+          python manage.py send_invoice_reminders
+          sleep 86400
+        done
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-brightloop}:${POSTGRES_PASSWORD:-brightloop}@db:5432/${POSTGRES_DB:-brightloop}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-production}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DJANGO_EMAIL_BACKEND: ${DJANGO_EMAIL_BACKEND:-}
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+      INVOICE_REMINDER_DAYS_BEFORE: ${INVOICE_REMINDER_DAYS_BEFORE:-3}
+      INVOICE_REMINDER_REPEAT_DAYS: ${INVOICE_REMINDER_REPEAT_DAYS:-7}
     depends_on:
       db:
         condition: service_healthy

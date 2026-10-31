@@ -18,6 +18,7 @@ from apps.subscriptions.models import Subscription, SubscriptionLine
 from apps.subscriptions.services import SubscriptionService
 
 PASSWORD = "Brightloop!2026"
+EMAIL_TEST_CUSTOMER = "milanpromod150@gmail.com"
 
 
 class Command(BaseCommand):
@@ -39,6 +40,30 @@ class Command(BaseCommand):
             defaults={"company_name": company, "phone": phone, "address": address, "tax_number": tax_number, "billing_email": email},
         )
         return profile
+
+    def seed_email_test_customer(self, service, today, staff, plan, erp, support):
+        customer = self.customer(EMAIL_TEST_CUSTOMER, "Anees Trading Co.", "+91 98765 43210", "14 MG Road, Kochi, Kerala", "IN-GST-32ABCDE1234F1Z5")
+        if customer.subscriptions.exists():
+            return
+        due_sub = Subscription.objects.create(
+            customer=customer, plan=plan, start_date=today - timedelta(days=70), expiry_date=today + timedelta(days=295),
+            payment_terms="NET_15", status="CONFIRMED",
+        )
+        SubscriptionLine.objects.create(subscription=due_sub, product=erp, quantity=2)
+        SubscriptionLine.objects.create(subscription=due_sub, product=support, quantity=1)
+        service.activate(due_sub)
+        due_sub.next_billing_date = today - timedelta(days=40)
+        due_sub.save(update_fields=["next_billing_date"])
+        InvoiceService.generate_due_invoices(run_date=today - timedelta(days=40))
+        invoices = list(Invoice.objects.filter(subscription=due_sub).order_by("id"))
+        for invoice in invoices:
+            InvoiceService.confirm(invoice)
+        if invoices:
+            Invoice.objects.filter(pk=invoices[0].pk).update(issue_date=today - timedelta(days=40), due_date=today - timedelta(days=25))
+        self.stdout.write(self.style.SUCCESS(
+            f"Email test customer {EMAIL_TEST_CUSTOMER}: subscription {due_sub.subscription_number} is due for billing, "
+            f"with {len(invoices)} confirmed invoice(s) awaiting email."
+        ))
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -127,11 +152,12 @@ class Command(BaseCommand):
             QuotationTemplateLine.objects.create(template=premium, product=analytics, quantity=1)
             QuotationTemplateLine.objects.create(template=premium, product=connector, quantity=1)
 
-        if Subscription.objects.exists():
+        service = SubscriptionService()
+        self.seed_email_test_customer(service, today, staff, monthly, erp, support)
+
+        if Subscription.objects.exclude(customer__user__email=EMAIL_TEST_CUSTOMER).exists():
             self.stdout.write(self.style.WARNING("Subscriptions already exist, skipping transactional demo data."))
             return
-
-        service = SubscriptionService()
 
         def activate_with_billing(sub, days_ago):
             service.activate(sub)
@@ -196,5 +222,5 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"Seeded demo data. Invoices created: {result['created']}. "
-            f"Sign in with admin@brightloop.com, alex@brightloop.com or ops@apexindustries.com and password {PASSWORD}"
+            f"Sign in with admin@brightloop.com, alex@brightloop.com, ops@apexindustries.com or {EMAIL_TEST_CUSTOMER} and password {PASSWORD}"
         ))

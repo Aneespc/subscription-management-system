@@ -46,7 +46,7 @@
           <td class="text-end"><div class="btn-group btn-group-sm">
             <a href="{% url 'invoicing:invoice_detail' invoice.pk %}" class="btn btn-light" title="View"><i class="bi bi-eye"></i></a>
             {% if is_staff_user and invoice.status == 'CONFIRMED' %}<a href="{% url 'payments:record' invoice.pk %}" class="btn btn-light" title="Record payment"><i class="bi bi-cash-coin"></i></a>{% endif %}
-            <a href="{% url 'invoicing:invoice_print' invoice.pk %}" class="btn btn-light" target="_blank" title="Print"><i class="bi bi-printer"></i></a>
+            <a href="{% url 'invoicing:invoice_pdf' invoice.pk %}" class="btn btn-light" target="_blank" title="PDF"><i class="bi bi-file-earmark-pdf"></i></a>
           </div></td>
         </tr>
       {% empty %}

@@ -97,6 +97,9 @@ class Invoice(models.Model):
         db_index=True,
     )
     notes = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    reminder_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -141,6 +144,10 @@ class Invoice(models.Model):
         self.tax_amount = quantize_currency(self.tax_amount)
         self.total_amount = quantize_currency(self.total_amount)
         super().save(*args, **kwargs)
+
+    @property
+    def days_until_due(self):
+        return (self.due_date - timezone.localdate()).days
 
     @property
     def is_overdue(self):

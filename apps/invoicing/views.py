@@ -3,8 +3,11 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q, Sum
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from datetime import timedelta
+
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -108,7 +111,21 @@ class BillingRunView(StaffRequiredMixin, View):
             .select_related("customer", "plan")
             .order_by("next_billing_date")
         )
-        return render(request, self.template_name, {"due_subscriptions": due[:200], "due_count": due.count(), "today": today})
+        confirmed = Invoice.objects.filter(status=Invoice.Status.CONFIRMED)
+        reminder_stats = {
+            "unsent": confirmed.filter(sent_at__isnull=True).count(),
+            "due_soon": confirmed.filter(due_date__gte=today, due_date__lte=today + timedelta(days=settings.INVOICE_REMINDER_DAYS_BEFORE), reminder_sent_at__isnull=True).count(),
+            "overdue": confirmed.filter(due_date__lt=today).count(),
+            "days_before": settings.INVOICE_REMINDER_DAYS_BEFORE,
+            "repeat_days": settings.INVOICE_REMINDER_REPEAT_DAYS,
+            "configured": settings.EMAIL_BACKEND.endswith("smtp.EmailBackend"),
+            "sender": settings.DEFAULT_FROM_EMAIL,
+        }
+        return render(
+            request,
+            self.template_name,
+            {"due_subscriptions": due[:200], "due_count": due.count(), "today": today, "reminders": reminder_stats},
+        )
 
     def post(self, request):
         result = InvoiceService.generate_due_invoices()
@@ -150,10 +167,39 @@ class InvoiceSendView(StaffRequiredMixin, View):
         invoice = get_object_or_404(Invoice, pk=pk)
         try:
             InvoiceService.send(invoice)
-            messages.success(request, f"Invoice {invoice.invoice_number} emailed to {invoice.customer.contact_email}.")
+            messages.success(request, f"Invoice {invoice.invoice_number} emailed with PDF to {invoice.customer.contact_email}.")
         except Exception as exc:
             messages.error(request, f"Failed to send invoice: {exc}")
         return redirect("invoicing:invoice_detail", pk=pk)
+
+
+class InvoicePDFView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        invoice = get_object_or_404(scoped_invoices(request.user), pk=pk)
+        try:
+            pdf_bytes = InvoiceService.render_pdf(invoice)
+        except Exception as exc:
+            messages.error(request, f"Could not generate the PDF: {exc}")
+            return redirect("invoicing:invoice_detail", pk=pk)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{invoice.invoice_number}.pdf"'
+        return response
+
+
+class SendRemindersView(StaffRequiredMixin, View):
+    def post(self, request):
+        result = InvoiceService.send_due_notifications()
+        total = result["invoice"] + result["due"] + result["overdue"]
+        if total:
+            messages.success(
+                request,
+                f"Sent {result['invoice']} invoice email(s), {result['due']} due reminder(s) and {result['overdue']} overdue reminder(s).",
+            )
+        else:
+            messages.info(request, "Nothing to send. Every confirmed invoice has been emailed and reminded recently.")
+        if result["failed"]:
+            messages.error(request, f"{len(result['failed'])} email(s) failed. Check the email settings and logs.")
+        return redirect(request.POST.get("next") or "invoicing:billing_run")
 
 
 class InvoicePrintView(LoginRequiredMixin, DetailView):

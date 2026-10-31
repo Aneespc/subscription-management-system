@@ -37,6 +37,24 @@
     </div>
   </div>
   <div class="col-lg-4">
+    <div class="card mb-4">
+      <div class="card-header">Invoice emails</div>
+      <div class="card-body">
+        <div class="detail-list mb-3">
+          <div class="row-item"><span>Confirmed, not yet emailed</span><span>{{ reminders.unsent }}</span></div>
+          <div class="row-item"><span>Due within {{ reminders.days_before }} days</span><span>{{ reminders.due_soon }}</span></div>
+          <div class="row-item"><span>Overdue</span><span class="{% if reminders.overdue %}text-danger{% endif %}">{{ reminders.overdue }}</span></div>
+          <div class="row-item"><span>Sender</span><span>{{ reminders.sender }}</span></div>
+        </div>
+        {% if not reminders.configured %}<div class="alert alert-warning py-2 small">SMTP is not configured, so emails print to the server console. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD to send through Gmail.</div>{% endif %}
+        <form method="post" action="{% url 'invoicing:send_reminders' %}" data-confirm="Email every unsent invoice and send due and overdue reminders now?">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{% url 'invoicing:billing_run' %}">
+          <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-envelope-paper me-1"></i>Send invoice emails now</button>
+        </form>
+        <div class="small text-muted mt-2">Runs daily as <code>python manage.py send_invoice_reminders</code>. Overdue invoices are chased every {{ reminders.repeat_days }} days.</div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-header">What happens</div>
       <div class="card-body">

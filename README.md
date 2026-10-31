@@ -30,6 +30,8 @@ Password reset and invoice emails print to the console in development. Set `DJAN
 
 **Turning a quote into a subscription.** Staff start from a quotation template that already holds the plan and product lines and stays valid for a set number of days. A quotation moves Draft, Sent, Confirmed and converts into a subscription. Each subscription has its own number, customer, plan, start and expiry dates, payment terms and lines with product, quantity, unit price, tax and amount, and moves Draft, Quotation, Confirmed, Active, Closed.
 
+**Invoice emails.** Each invoice can be emailed as a PDF with one click from the invoice page. A daily job (`python manage.py send_invoice_reminders`, run by the `scheduler` container) emails every confirmed invoice that has not been sent, sends a reminder a few days before the due date, and chases overdue invoices every week. Staff can trigger the same run from the Billing Run page.
+
 **Billing day.** The billing run (button on the invoices page, or `python manage.py generate_invoices` on a schedule) creates one draft invoice per due period from each subscription, with customer details, lines, taxes and totals filled in. A unique constraint on subscription and period prevents double billing, and missed periods are caught up so none are skipped. Staff confirm, cancel, send or print any invoice; invoices move Draft, Confirmed, Paid.
 
 **A customer asks for a better price.** Only admins create discounts: fixed or percentage, with minimum purchase or quantity, start and end dates, and a usage limit, scoped to specific products or the whole subscription. The best valid discount is applied automatically on the next invoice and stops when it expires or runs out.
@@ -61,7 +63,32 @@ Run the billing job inside the container on a schedule:
 
 ```bash
 docker compose exec web python manage.py generate_invoices
+docker compose exec web python manage.py send_invoice_reminders
 ```
+
+The `scheduler` service in Compose already runs both once a day. After editing `.env`, run `docker compose up -d` again so the containers pick up the new values.
+
+## Sending email through Gmail
+
+1. In your Google account turn on 2-Step Verification, then open **Security → App passwords** and create one for "Mail". Google shows a 16-character password.
+2. Set these in `.env` (or the environment):
+
+```
+EMAIL_HOST_USER=yourname@gmail.com
+EMAIL_HOST_PASSWORD=the-16-character-app-password
+DEFAULT_FROM_EMAIL=yourname@gmail.com
+```
+
+Enter the app password as its 16 letters only, with no spaces or hyphens. Gmail does not return an error for a wrong password; it closes the connection, which shows up as "Connection unexpectedly closed". Check the setup at any time with:
+
+```bash
+python manage.py send_test_email you@gmail.com
+docker compose exec web python manage.py send_test_email you@gmail.com
+```
+
+When both `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` are set the app switches from the console backend to SMTP (`smtp.gmail.com`, port 587, TLS). Leave them unset in development and every email, including the PDF attachment, prints to the terminal instead. Your normal Google password will not work; Gmail requires an app password for SMTP.
+
+`INVOICE_REMINDER_DAYS_BEFORE` (default 3) controls how many days before the due date the first reminder goes out, and `INVOICE_REMINDER_REPEAT_DAYS` (default 7) how often overdue invoices are chased.
 
 ## Online payments with Razorpay (test mode)
 
@@ -94,6 +121,7 @@ static/            stylesheet and shared JavaScript
 python manage.py test                                              # run the test suite
 python manage.py seed_demo                                         # demo users, catalog, quotes, subscriptions, invoices, payments
 python manage.py generate_invoices [--date YYYY-MM-DD] [--dry-run] # scheduled billing run
+python manage.py send_invoice_reminders [--date YYYY-MM-DD]          # email unsent, due and overdue invoices with PDF
 ```
 
 ## Configuration

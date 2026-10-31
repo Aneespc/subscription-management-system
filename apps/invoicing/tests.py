@@ -152,7 +152,7 @@ class InvoicingTests(TestCase):
         with self.assertRaises(ValidationError):
             InvoiceService.mark_paid(inv_cancel)
 
-    def test_send_emails_invoice(self):
+    def test_send_emails_invoice_with_pdf(self):
         from django.core import mail
 
         inv = InvoiceService.generate_for_subscription(self.sub1, self.today - timedelta(days=30), self.today - timedelta(days=1))
@@ -160,6 +160,54 @@ class InvoicingTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(inv.invoice_number, mail.outbox[0].subject)
         self.assertEqual(mail.outbox[0].to, ["client1@domain.com"])
+        name, content, mimetype = mail.outbox[0].attachments[0]
+        self.assertEqual((name, mimetype), (f"{inv.invoice_number}.pdf", "application/pdf"))
+        self.assertTrue(content.startswith(b"%PDF"))
+        inv.refresh_from_db()
+        self.assertIsNotNone(inv.sent_at)
+
+    def test_pdf_view_for_owner_only(self):
+        inv = InvoiceService.generate_for_subscription(self.sub1, self.today - timedelta(days=30), self.today - timedelta(days=1))
+        self.client.force_login(self.cust_user1)
+        response = self.client.get(reverse("invoicing:invoice_pdf", args=[inv.pk]))
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.client.force_login(self.cust_user2)
+        self.assertEqual(self.client.get(reverse("invoicing:invoice_pdf", args=[inv.pk])).status_code, 404)
+
+    def test_due_and_overdue_reminders(self):
+        from django.core import mail
+        from django.utils import timezone
+
+        unsent = InvoiceService.generate_for_subscription(self.sub1, self.today - timedelta(days=30), self.today - timedelta(days=1))
+        InvoiceService.confirm(unsent)
+        Invoice.objects.filter(pk=unsent.pk).update(due_date=self.today + timedelta(days=2))
+        overdue = InvoiceService.generate_for_subscription(self.sub1, self.today - timedelta(days=60), self.today - timedelta(days=31))
+        InvoiceService.confirm(overdue)
+        Invoice.objects.filter(pk=overdue.pk).update(due_date=self.today - timedelta(days=5), sent_at=timezone.now())
+        draft = InvoiceService.generate_for_subscription(self.sub1, self.today - timedelta(days=90), self.today - timedelta(days=61))
+
+        result = InvoiceService.send_due_notifications(today=self.today, days_before=3, repeat_days=7)
+        self.assertEqual((result["invoice"], result["due"], result["overdue"]), (1, 1, 1))
+        subjects = [m.subject for m in mail.outbox]
+        self.assertTrue(any(s.startswith("Invoice ") for s in subjects))
+        self.assertTrue(any(s.startswith("Reminder:") for s in subjects))
+        self.assertTrue(any(s.startswith("Overdue:") for s in subjects))
+        self.assertTrue(all(m.attachments for m in mail.outbox))
+
+        mail.outbox.clear()
+        again = InvoiceService.send_due_notifications(today=self.today, days_before=3, repeat_days=7)
+        self.assertEqual((again["invoice"], again["due"], again["overdue"]), (0, 0, 0))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Invoice.objects.get(pk=draft.pk).sent_at, None)
+
+        later = InvoiceService.send_due_notifications(today=self.today + timedelta(days=8), days_before=3, repeat_days=7)
+        self.assertEqual(later["overdue"], 2)
+
+    def test_send_reminders_button_is_staff_only(self):
+        self.client.force_login(self.cust_user1)
+        self.assertEqual(self.client.post(reverse("invoicing:send_reminders")).status_code, 403)
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.post(reverse("invoicing:send_reminders")).status_code, 302)
 
     def test_customer_cannot_see_others_invoices(self):
         inv1 = InvoiceService.generate_for_subscription(
