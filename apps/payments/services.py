@@ -1,0 +1,92 @@
+from datetime import date
+from decimal import Decimal
+from uuid import uuid4
+
+from django.db import transaction
+from django.db.models import DecimalField, F, Sum, Value
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+
+from .models import Invoice, Payment  # later: from apps.invoicing.models import Invoice
+
+ZERO = Decimal("0.00")
+
+
+class PaymentError(ValueError):
+    """Raised when a payment breaks a business rule."""
+
+
+def calculate_outstanding(invoice):
+    paid = invoice.payments.aggregate(
+        total=Coalesce(Sum("amount"), Value(ZERO), output_field=DecimalField())
+    )["total"]
+    return invoice.total_amount - paid
+
+
+def record_payment(invoice, amount, method, recorded_by,
+                   payment_date=None, transaction_reference="", notes=""):
+    amount = Decimal(str(amount)).quantize(Decimal("0.01"))
+    if amount <= 0:
+        raise PaymentError("Payment amount must be greater than zero.")
+    if method not in Payment.PaymentMethod.values:
+        raise PaymentError(f"Invalid payment method: {method}")
+
+    with transaction.atomic():
+        # Lock the invoice row so two simultaneous payments can't both pass the check
+        invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+
+        if invoice.status != Invoice.Status.CONFIRMED:
+            raise PaymentError(
+                f"Payments are only accepted on CONFIRMED invoices (this one is {invoice.status})."
+            )
+
+        outstanding = calculate_outstanding(invoice)
+        if amount > outstanding:
+            raise PaymentError(f"Amount {amount} exceeds the outstanding balance {outstanding}.")
+
+        payment = Payment.objects.create(
+            payment_number=f"TMP-{uuid4().hex[:12]}",
+            invoice=invoice,
+            amount=amount,
+            payment_method=method,
+            payment_date=payment_date or timezone.now(),
+            transaction_reference=transaction_reference,
+            notes=notes,
+            recorded_by=recorded_by,
+        )
+        payment.payment_number = f"PAY-{payment.payment_date.year}-{payment.pk:05d}"
+        payment.save(update_fields=["payment_number"])
+
+        if calculate_outstanding(invoice) == 0:
+            invoice.status = Invoice.Status.PAID
+            invoice.save(update_fields=["status"])
+
+    return payment
+
+
+def get_overdue_invoices():
+    return (
+        Invoice.objects.filter(status=Invoice.Status.CONFIRMED, due_date__lt=date.today())
+        .annotate(paid=Coalesce(Sum("payments__amount"), Value(ZERO), output_field=DecimalField()))
+        .annotate(outstanding=F("total_amount") - F("paid"))
+        .filter(outstanding__gt=0)
+    )
+
+
+def reconcile_payment(payment):
+    """Re-check a payment's invoice and fix or flag status mismatches."""
+    with transaction.atomic():
+        invoice = Invoice.objects.select_for_update().get(pk=payment.invoice_id)
+        outstanding = calculate_outstanding(invoice)
+        issues = []
+
+        if outstanding < 0:
+            issues.append("Overpaid: payments exceed the invoice total.")
+        if outstanding <= 0 and invoice.status == Invoice.Status.CONFIRMED:
+            invoice.status = Invoice.Status.PAID
+            invoice.save(update_fields=["status"])
+        elif outstanding > 0 and invoice.status == Invoice.Status.PAID:
+            issues.append("Invoice is PAID but still has an outstanding balance.")
+
+    return {"invoice": invoice.invoice_number, "outstanding": outstanding,
+            "status": invoice.status, "issues": issues}
