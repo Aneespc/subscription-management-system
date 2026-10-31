@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Discounts Management | Brightloop Billing{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-1">Discounts & Promotions</h1>
+    <p class="text-muted mb-0">Configure fixed and percentage discounts, validity periods, and usage limits.</p>
+  </div>
+  <a href="{% url 'discounts:discount_create' %}" class="btn btn-primary shadow-sm">
+    <i class="bi bi-plus-lg me-1"></i>New Discount
+  </a>
+</div>
+
+<!-- Filter Box -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label small fw-semibold">Search Discount</label>
+        {{ filter_form.q }}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Type</label>
+        {{ filter_form.discount_type }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Status</label>
+        {{ filter_form.is_active }}
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-dark w-100">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        <a href="{% url 'discounts:discount_list' %}" class="btn btn-outline-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Discounts Table -->
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Name</th>
+          <th>Type & Value</th>
+          <th>Scope</th>
+          <th>Validity Dates</th>
+          <th class="text-center">Usage</th>
+          <th class="text-center">Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for discount in discounts %}
+          <tr>
+            <td>
+              <span class="fw-bold">{{ discount.name }}</span>
+              {% if discount.minimum_purchase %}
+                <span class="text-muted d-block small">Min Purchase: ${{ discount.minimum_purchase }}</span>
+              {% endif %}
+              {% if discount.minimum_quantity %}
+                <span class="text-muted d-block small">Min Qty: {{ discount.minimum_quantity }} item(s)</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if discount.discount_type == 'PERCENTAGE' %}
+                <span class="badge bg-info text-dark fs-6">{{ discount.value }}%</span>
+              {% else %}
+                <span class="badge bg-success fs-6">${{ discount.value }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border">
+                {{ discount.get_applies_to_display }}
+              </span>
+              {% if discount.applies_to == 'PRODUCTS' %}
+                <span class="d-block small text-muted">
+                  {{ discount.products.count }} product(s)
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="small">
+                {{ discount.start_date|date:"M d, Y" }} &ndash; {{ discount.end_date|date:"M d, Y" }}
+              </div>
+            </td>
+            <td class="text-center">
+              <span class="fw-bold">{{ discount.usage_count }}</span>
+              <span class="text-muted small">/ {% if discount.usage_limit %}{{ discount.usage_limit }}{% else %}&infin;{% endif %}</span>
+              {% if discount.usage_limit and discount.usage_count >= discount.usage_limit %}
+                <span class="badge bg-danger d-block mt-1">Exhausted</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if discount.is_currently_valid %}
+                <span class="badge bg-success">Valid</span>
+              {% elif not discount.is_active %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Expired / Full</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'discounts:discount_edit' discount.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil me-1"></i>Edit
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">No discounts configured yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "components/pagination.html" %}
+{% endblock %}
+

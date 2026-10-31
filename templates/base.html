@@ -1,143 +1,126 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>{% block title %}Subscription Management System{% endblock %}</title>
-
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
-
-    <link rel="stylesheet"
-            href="{% static 'css/style.css' %}">
-
-    {% block extra_css %}{% endblock %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Brightloop Billing & Subscriptions{% endblock %}</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .main-content {
+      flex: 1 0 auto;
+    }
+    .navbar-brand {
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .badge-status-draft { background-color: #6c757d; }
+    .badge-status-confirmed { background-color: #0d6efd; }
+    .badge-status-paid { background-color: #198754; }
+    .badge-status-cancelled { background-color: #dc3545; }
+    .table-hover tbody tr:hover {
+      background-color: rgba(13, 110, 253, 0.04);
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
 </head>
+<body>
+  <!-- Navigation Header -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container">
+      <a class="navbar-brand text-primary fw-bold" href="{% url 'invoicing:invoice_list' %}">
+        <i class="bi bi-receipt-cutoff me-2"></i>Brightloop Billing
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-side"></span>
+      </button>
 
-<body class="bg-light">
-
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-
-            <a class="navbar-brand fw-bold" href="#">
-                Subscription Manager
+      <div class="collapse navbar-collapse" id="navbarMain">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'invoicing' and 'invoices' in request.path %}active{% endif %}" href="{% url 'invoicing:invoice_list' %}">
+              <i class="bi bi-file-earmark-text me-1"></i>Invoices
             </a>
+          </li>
+          {% if user.is_authenticated and user.is_staff_role %}
+            <li class="nav-item">
+              <a class="nav-link {% if 'generate' in request.path %}active{% endif %}" href="{% url 'invoicing:invoice_generate' %}">
+                <i class="bi bi-lightning-charge me-1"></i>Generate Invoice
+              </a>
+            </li>
+          {% endif %}
+          {% if user.is_authenticated and user.is_admin_role %}
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle {% if request.resolver_match.app_name == 'discounts' %}active{% endif %}" href="#" id="discountsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-tag me-1"></i>Discounts
+              </a>
+              <ul class="dropdown-menu shadow-sm" aria-labelledby="discountsDropdown">
+                <li><a class="dropdown-item" href="{% url 'discounts:discount_list' %}"><i class="bi bi-list-ul me-2"></i>Manage Discounts</a></li>
+                <li><a class="dropdown-item" href="{% url 'discounts:discount_create' %}"><i class="bi bi-plus-circle me-2"></i>Create Discount</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{% url 'discounts:discount_usages' %}"><i class="bi bi-clock-history me-2"></i>Usage History</a></li>
+              </ul>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle {% if 'taxes' in request.path %}active{% endif %}" href="#" id="taxesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-percent me-1"></i>Tax Config
+              </a>
+              <ul class="dropdown-menu shadow-sm" aria-labelledby="taxesDropdown">
+                <li><a class="dropdown-item" href="{% url 'invoicing:tax_list' %}"><i class="bi bi-list-check me-2"></i>Taxes List</a></li>
+                <li><a class="dropdown-item" href="{% url 'invoicing:tax_create' %}"><i class="bi bi-plus-circle me-2"></i>Create New Tax</a></li>
+              </ul>
+            </li>
+          {% endif %}
+        </ul>
 
-            <button class="navbar-toggler" type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#navbarContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarContent">
-
-                <ul class="navbar-nav me-auto">
-
-                    {% if user.is_authenticated %}
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Dashboard</a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'products:list' %}">
-                            Products
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'plans:list' %}">
-                            Plans
-                        </a>
-                    </li>
-
-                    {% endif %}
-
-                </ul>
-
-                <ul class="navbar-nav">
-
-                    {% if user.is_authenticated %}
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'accounts:profile' %}">
-                            {{ user.username }}
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <form method="POST" action="{% url 'accounts:logout' %}">
-                            {% csrf_token %}
-                            <button class="btn btn-outline-light btn-sm mt-1">
-                                Logout
-                            </button>
-                        </form>
-                    </li>
-
-                    {% else %}
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'accounts:login' %}">
-                            Login
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="btn btn-primary btn-sm mt-1"
-                           href="{% url 'accounts:register' %}">
-                            Register
-                        </a>
-                    </li>
-
-                    {% endif %}
-
-                </ul>
-
-            </div>
+        <div class="d-flex align-items-center">
+          {% if user.is_authenticated %}
+            <span class="badge bg-secondary me-3">
+              <i class="bi bi-person-circle me-1"></i>{{ user.username }} ({{ user.get_role_display }})
+            </span>
+            <a href="/admin/" class="btn btn-sm btn-outline-light me-2" title="Django Admin">
+              <i class="bi bi-shield-lock me-1"></i>Admin
+            </a>
+            <form action="{% url 'admin:logout' %}" method="post" class="d-inline">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger" type="submit">Logout</button>
+            </form>
+          {% else %}
+            <a href="/admin/login/?next={{ request.path }}" class="btn btn-sm btn-primary">
+              <i class="bi bi-box-arrow-in-right me-1"></i>Log In
+            </a>
+          {% endif %}
         </div>
-    </nav>
+      </div>
+    </div>
+  </nav>
 
+  <!-- Flash Messages -->
+  {% include "components/messages.html" %}
 
-    <!-- Main Content -->
-    <main class="container py-4">
+  <!-- Main View Area -->
+  <main class="main-content container py-4">
+    {% block content %}{% endblock %}
+  </main>
 
-        <!-- Django Messages -->
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                    {{ message }}
+  <!-- Footer -->
+  <footer class="footer bg-white border-top py-3 text-muted text-center mt-auto">
+    <div class="container small">
+      &copy; 2026 Brightloop Software &bull; Subscription & Invoicing Engine &bull; Member 3 Feature Branch
+    </div>
+  </footer>
 
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="alert">
-                    </button>
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        {% block content %}
-        {% endblock %}
-
-    </main>
-
-
-    <!-- Footer -->
-    <footer class="bg-dark text-white text-center py-3 mt-5">
-        <p class="mb-0">
-            Subscription Management System &copy; 2026
-        </p>
-    </footer>
-
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
-    </script>
-
-    {% block extra_js %}{% endblock %}
-
+  <!-- Bootstrap 5 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
+
