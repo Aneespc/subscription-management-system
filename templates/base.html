@@ -3,6 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Brightloop - Subscription Management{% endblock %}</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary-color: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg-surface: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-surface);
+      color: var(--text-main);
   <title>{% block title %}Brightloop Billing & Subscriptions{% endblock %}</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -15,6 +42,98 @@
       display: flex;
       flex-direction: column;
     }
+
+    .main-content {
+      flex: 1;
+    }
+
+    .card {
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+      border-radius: 0.75rem;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .card-kpi {
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .card-kpi.success { border-left-color: #10b981; }
+    .card-kpi.warning { border-left-color: #f59e0b; }
+    .card-kpi.danger  { border-left-color: #ef4444; }
+    .card-kpi.info    { border-left-color: #06b6d4; }
+    .card-kpi.dark    { border-left-color: #475569; }
+
+    .badge-status {
+      font-size: 0.78rem;
+      padding: 0.35rem 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.025em;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .badge-draft { background-color: #f1f5f9; color: #475569; }
+    .badge-quotation { background-color: #e0f2fe; color: #0369a1; }
+    .badge-confirmed { background-color: #e0e7ff; color: #4338ca; }
+    .badge-active { background-color: #dcfce7; color: #15803d; }
+    .badge-paused { background-color: #fef3c7; color: #b45309; }
+    .badge-closed { background-color: #fee2e2; color: #b91c1c; }
+    .badge-converted { background-color: #f3e8ff; color: #7e22ce; }
+
+    .table thead th {
+      background-color: #f8fafc;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .table tbody tr:hover {
+      background-color: rgba(79, 70, 229, 0.02);
+    }
+
+    .btn {
+      font-weight: 500;
+      border-radius: 0.5rem;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+
+    .form-control, .form-select {
+      border-radius: 0.5rem;
+      border-color: var(--border-color);
+    }
+
+    .form-control:focus, .form-select:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.15);
+    }
+  </style>
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  {% include 'components/navbar.html' %}
+  {% include 'components/messages.html' %}
+
+  <main class="main-content container-fluid px-4 py-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% include 'components/footer.html' %}
+
+  <!-- Bootstrap 5.3 JS Bundle -->
     .main-content {
       flex: 1 0 auto;
     }
@@ -123,4 +242,3 @@
   {% block extra_js %}{% endblock %}
 </body>
 </html>
-

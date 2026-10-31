@@ -30,11 +30,19 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Local Apps
+    "apps.accounts",
+    "apps.products",
+    "apps.plans",
+    "apps.quotations",
+    "apps.subscriptions",
     "apps.payments",
     "apps.dashboard",
     "rest_framework",
     "accounts",
 ]
+
+AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
