@@ -3,7 +3,8 @@ from rest_framework import generics, mixins, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Invoice, Payment
+from apps.invoicing.models import Invoice
+from .models import Payment
 from .permissions import IsStaffOrAdmin
 from .serializers import OverdueInvoiceSerializer, PaymentCreateSerializer, PaymentSerializer
 from .services import calculate_outstanding, get_overdue_invoices
@@ -65,4 +66,4 @@ class OverdueInvoicesView(generics.ListAPIView):
     serializer_class = OverdueInvoiceSerializer
 
     def get_queryset(self):
-        return get_overdue_invoices().order_by("due_date")
+        return get_overdue_invoices().order_by("due_date")  

@@ -4,20 +4,37 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from .models import Invoice
+from apps.accounts.models import CustomerProfile
+from apps.invoicing.models import Invoice
+
 from .services import PaymentError, calculate_outstanding, get_overdue_invoices, record_payment
+
+User = get_user_model()
 
 
 class PaymentServiceTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="staff", password="x")
-        self.invoice = Invoice.objects.create(
-            invoice_number="INV-1", total_amount=Decimal("1000.00"),
-            status=Invoice.Status.CONFIRMED, due_date=date.today() + timedelta(days=10),
+        self.staff = User.objects.create_user(
+            username="staff", email="staff@example.com", password="Passw0rd!x", role="STAFF"
+        )
+        customer_user = User.objects.create_user(
+            username="cust", email="cust@example.com", password="Passw0rd!x", role="CUSTOMER"
+        )
+        self.customer = CustomerProfile.objects.create(
+            user=customer_user, company_name="Test Co", phone="0000000000", address="Test address"
+        )
+        self.invoice = self.make_invoice("INV-1", due_in_days=10)
+
+    def make_invoice(self, number, due_in_days):
+        due = date.today() + timedelta(days=due_in_days)
+        return Invoice.objects.create(
+            invoice_number=number, customer=self.customer,
+            total_amount=Decimal("1000.00"), status=Invoice.Status.CONFIRMED,
+            due_date=due, billing_period_start=due - timedelta(days=30), billing_period_end=due,
         )
 
     def pay(self, amount):
-        return record_payment(self.invoice, amount, "CASH", self.user)
+        return record_payment(self.invoice, amount, "CASH", self.staff)
 
     def test_partial_payment_keeps_invoice_confirmed(self):
         self.pay("400")

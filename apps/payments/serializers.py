@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .models import Invoice, Payment
+from apps.invoicing.models import Invoice
+from .models import Payment
 from .services import PaymentError, record_payment
 
 

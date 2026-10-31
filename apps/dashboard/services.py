@@ -5,7 +5,8 @@ from django.db.models.functions import Coalesce, TruncMonth, TruncQuarter, Trunc
 from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 
-from apps.payments.models import Invoice, Payment
+from apps.invoicing.models import Invoice
+from apps.payments.models import Payment
 from apps.payments.services import get_overdue_invoices
 
 ZERO = Decimal("0.00")
@@ -37,7 +38,8 @@ def filter_payments(params):
         qs = qs.filter(payment_method=params["method"])
     if params.get("invoice_status"):
         qs = qs.filter(invoice__status=params["invoice_status"])
-    # TODO: customer filter once Invoice has the real `customer` FK
+    if params.get("customer"):
+      qs = qs.filter(invoice__customer_id=params["customer"])
     return qs
 
 
