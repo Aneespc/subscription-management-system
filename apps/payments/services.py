@@ -6,9 +6,7 @@ from django.db.models import DecimalField, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.invoicing.models import Invoice
-
-from .models import Payment
+from .models import Invoice, Payment  # later: from apps.invoicing.models import Invoice
 
 ZERO = Decimal("0.00")
 MONEY = DecimalField(max_digits=14, decimal_places=2)
@@ -16,13 +14,6 @@ MONEY = DecimalField(max_digits=14, decimal_places=2)
 
 class PaymentError(ValueError):
     """Raised when a payment breaks a business rule."""
-
-
-def _mark_invoice_paid(invoice, payment):
-    # Imported here to avoid circular imports between the invoicing and payments apps
-    from apps.invoicing.services import InvoiceService
-
-    InvoiceService.mark_paid(invoice=invoice, payment=payment)
 
 
 def calculate_outstanding(invoice):
@@ -66,19 +57,16 @@ def record_payment(invoice, amount, method, recorded_by,
         payment.payment_number = f"PAY-{payment.payment_date.year}-{payment.pk:05d}"
         payment.save(update_fields=["payment_number"])
 
-        # Only a fully paid invoice moves to PAID, and Member 3's service owns that transition
         if calculate_outstanding(invoice) == 0:
-            _mark_invoice_paid(invoice, payment)
+            invoice.status = Invoice.Status.PAID
+            invoice.save(update_fields=["status"])
 
     return payment
 
 
-def get_overdue_invoices():
-    """CONFIRMED invoices past their due date with a balance left.
-
-    Uses a subquery instead of a join, so the result can be counted and
-    summed in a single query (the dashboard relies on this).
-    """
+def invoices_with_balance(queryset):
+    """Annotate invoices with `paid` and `outstanding` using a subquery (no join, so
+    the result can still be counted and summed in one query)."""
     paid = (
         Payment.objects.filter(invoice=OuterRef("pk"))
         .order_by()
@@ -87,13 +75,24 @@ def get_overdue_invoices():
         .values("total")
     )
     return (
-        Invoice.objects.filter(
-            status=Invoice.Status.CONFIRMED, due_date__lt=timezone.localdate()
-        )
+        queryset
         .annotate(paid=Coalesce(Subquery(paid, output_field=MONEY), Value(ZERO), output_field=MONEY))
         .annotate(outstanding=F("total_amount") - F("paid"))
-        .filter(outstanding__gt=0)
     )
+
+
+def get_overdue_invoices():
+    """CONFIRMED invoices past their due date with a balance left."""
+    return invoices_with_balance(
+        Invoice.objects.filter(status=Invoice.Status.CONFIRMED, due_date__lt=timezone.localdate())
+    ).filter(outstanding__gt=0)
+
+
+def get_payable_invoices():
+    """CONFIRMED invoices that still have a balance (what the record-payment form offers)."""
+    return invoices_with_balance(
+        Invoice.objects.filter(status=Invoice.Status.CONFIRMED)
+    ).filter(outstanding__gt=0)
 
 
 def reconcile_payment(payment):
@@ -106,8 +105,8 @@ def reconcile_payment(payment):
         if outstanding < 0:
             issues.append("Overpaid: payments exceed the invoice total.")
         if outstanding <= 0 and invoice.status == Invoice.Status.CONFIRMED:
-            _mark_invoice_paid(invoice, payment)
-            invoice.refresh_from_db()
+            invoice.status = Invoice.Status.PAID
+            invoice.save(update_fields=["status"])
         elif outstanding > 0 and invoice.status == Invoice.Status.PAID:
             issues.append("Invoice is PAID but still has an outstanding balance.")
 

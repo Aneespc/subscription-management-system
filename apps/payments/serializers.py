@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
-from apps.invoicing.models import Invoice
-from .models import Payment
+from .models import Invoice, Payment  # later: Invoice from apps.invoicing.models
 from .services import PaymentError, record_payment
 
 
@@ -39,10 +38,19 @@ class PaymentCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({"detail": str(exc)})
 
 
-class OverdueInvoiceSerializer(serializers.ModelSerializer):
-    paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    outstanding = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+class InvoiceBalanceSerializer(serializers.ModelSerializer):
+    """An invoice with how much has been paid and what is still owed."""
+    paid = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    outstanding = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
 
     class Meta:
         model = Invoice
         fields = ["id", "invoice_number", "due_date", "total_amount", "paid", "outstanding", "status"]
+
+
+class OutstandingSerializer(serializers.Serializer):
+    invoice_number = serializers.CharField()
+    status = serializers.CharField()
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_paid = serializers.DecimalField(max_digits=14, decimal_places=2)
+    outstanding = serializers.DecimalField(max_digits=14, decimal_places=2)

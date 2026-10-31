@@ -6,9 +6,9 @@
 <title>Finance Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
-  :root { --bg:#f5f6fa; --card:#ffffff; --text:#1c2333; --muted:#6b7280; --border:#e5e7eb; --accent:#4f46e5; --danger:#dc2626; }
+  :root { --bg:#f5f6fa; --card:#ffffff; --text:#1c2333; --muted:#6b7280; --border:#e5e7eb; --accent:#4f46e5; --danger:#dc2626; --ok:#15803d; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1220; --card:#181c2f; --text:#e8eaf3; --muted:#9aa3b8; --border:#2a3050; --accent:#818cf8; --danger:#f87171; }
+    :root { --bg:#0f1220; --card:#181c2f; --text:#e8eaf3; --muted:#9aa3b8; --border:#2a3050; --accent:#818cf8; --danger:#f87171; --ok:#4ade80; }
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
@@ -16,26 +16,40 @@
   h1 { margin:0 0 4px; font-size:22px; }
   h2 { margin:0 0 12px; font-size:15px; }
   .sub { color:var(--muted); font-size:13px; margin-bottom:18px; }
-  .filters { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:18px; }
+  .filters, .payform { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .filters { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:18px; }
   label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
   input, select, button { font:inherit; padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); }
   button { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
   button.ghost { background:transparent; color:var(--text); border-color:var(--border); }
   .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; margin-bottom:18px; }
   .card, .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .panel { margin-bottom:18px; }
   .card .label { font-size:12px; color:var(--muted); }
   .card .value { font-size:24px; font-weight:650; margin-top:6px; }
   .card .note { font-size:12px; color:var(--muted); margin-top:4px; min-height:15px; }
   .card.danger .value { color:var(--danger); }
   .card.pending .value { color:var(--muted); font-size:18px; font-weight:500; }
   .grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:18px; }
+  .grid .panel { margin-bottom:0; }
   @media (max-width:800px) { .grid { grid-template-columns:1fr; } }
   .chartbox { position:relative; height:280px; }
+  .buckets { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; }
+  .bucket { border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .bucket .label { font-size:12px; color:var(--muted); }
+  .bucket .amount { font-size:20px; font-weight:650; margin-top:4px; }
+  .bucket .note { font-size:12px; color:var(--muted); margin-top:2px; }
+  .bucket.hot .amount { color:var(--danger); }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
   th { color:var(--muted); font-weight:500; font-size:12px; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
   .late { color:var(--danger); }
+  .msg { margin-top:10px; font-size:14px; min-height:18px; }
+  .msg.good { color:var(--ok); }
+  .msg.bad { color:var(--danger); }
+  #pay-invoice { min-width:280px; }
   #error { display:none; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:14px; }
   .empty { color:var(--muted); padding:16px 0; font-size:14px; }
 </style>
@@ -71,17 +85,45 @@
   </form>
 
   <section class="cards">
-    <div class="card"><div class="label">Revenue received</div><div class="value" id="c-revenue">–</div><div class="note" id="n-revenue"></div></div>
-    <div class="card"><div class="label">Outstanding</div><div class="value" id="c-outstanding">–</div><div class="note">Confirmed invoices, unpaid balance</div></div>
-    <div class="card danger"><div class="label">Overdue invoices</div><div class="value" id="c-overdue">–</div><div class="note" id="n-overdue"></div></div>
-    <div class="card"><div class="label">Total invoices</div><div class="value" id="c-invoices">–</div><div class="note"></div></div>
-    <div class="card"><div class="label">Active subscriptions</div><div class="value" id="c-active">–</div><div class="note"></div></div>
-    <div class="card"><div class="label">Monthly recurring revenue</div><div class="value" id="c-mrr">–</div><div class="note"></div></div>
+    <div class="card"><div class="label">Revenue received</div><div class="value" id="c-revenue">-</div><div class="note" id="n-revenue"></div></div>
+    <div class="card"><div class="label">Outstanding</div><div class="value" id="c-outstanding">-</div><div class="note">Confirmed invoices, unpaid balance</div></div>
+    <div class="card danger"><div class="label">Overdue invoices</div><div class="value" id="c-overdue">-</div><div class="note" id="n-overdue"></div></div>
+    <div class="card"><div class="label">Total invoices</div><div class="value" id="c-invoices">-</div><div class="note"></div></div>
+    <div class="card"><div class="label">Active subscriptions</div><div class="value" id="c-active">-</div><div class="note"></div></div>
+    <div class="card"><div class="label">Monthly recurring revenue</div><div class="value" id="c-mrr">-</div><div class="note"></div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Record a payment</h2>
+    <form class="payform" id="pay-form">
+      {% csrf_token %}
+      <label>Find invoice <input type="search" id="pay-search" placeholder="Type an invoice number"></label>
+      <label>Invoice <select id="pay-invoice"></select></label>
+      <label>Amount <input type="number" id="pay-amount" step="0.01" min="0.01" required></label>
+      <label>Method
+        <select id="pay-method">
+          <option value="CASH">Cash</option>
+          <option value="BANK_TRANSFER">Bank transfer</option>
+          <option value="CARD">Card</option>
+          <option value="UPI">UPI</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </label>
+      <label>Reference <input type="text" id="pay-ref" maxlength="100"></label>
+      <label>Note <input type="text" id="pay-notes"></label>
+      <button type="submit" id="pay-submit">Record payment</button>
+    </form>
+    <div class="msg" id="pay-message" role="status"></div>
   </section>
 
   <section class="grid">
     <div class="panel"><h2>Revenue received</h2><div class="chartbox"><canvas id="revenueChart"></canvas></div></div>
     <div class="panel"><h2>Payments by method</h2><div class="chartbox"><canvas id="methodChart"></canvas></div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Overdue aging <span class="sub" id="aging-total"></span></h2>
+    <div class="buckets" id="aging"></div>
   </section>
 
   <section class="panel">
@@ -98,6 +140,8 @@ Chart.defaults.color = style.getPropertyValue("--muted").trim();
 Chart.defaults.borderColor = style.getPropertyValue("--border").trim();
 const PALETTE = ["#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"];
 let revenueChart, methodChart;
+let payable = [];
+let searchTimer;
 
 function queryString() {
   const p = new URLSearchParams();
@@ -175,6 +219,27 @@ function renderSummary(s) {
   setCard("c-mrr", s.mrr, money);
 }
 
+function renderAging(data) {
+  const holder = $("aging");
+  holder.replaceChildren();
+  $("aging-total").textContent = data.total_count + " invoices, " + money(data.total_amount) + " overdue";
+  data.buckets.forEach((b, index) => {
+    const box = document.createElement("div");
+    box.className = "bucket" + (index >= 2 ? " hot" : "");
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = b.bucket;
+    const amount = document.createElement("div");
+    amount.className = "amount";
+    amount.textContent = money(b.amount);
+    const count = document.createElement("div");
+    count.className = "note";
+    count.textContent = b.count + (b.count === 1 ? " invoice" : " invoices");
+    box.append(label, amount, count);
+    holder.append(box);
+  });
+}
+
 function renderOverdue(data) {
   const rows = data.results.slice(0, 10);
   $("overdue-count").textContent = data.count ? "(showing " + rows.length + " of " + data.count + ")" : "";
@@ -207,12 +272,14 @@ async function load() {
   const started = performance.now();
   const qs = queryString();
   try {
-    const [report, overdue] = await Promise.all([
+    const [report, overdue, aging] = await Promise.all([
       getJSON("/api/dashboard/reports/?" + qs),
       getJSON("/api/dashboard/overdue-invoices/"),
+      getJSON("/api/dashboard/aging/"),
     ]);
     renderSummary(report.summary);
     renderCharts(report, $("group").value);
+    renderAging(aging);
     renderOverdue(overdue);
     $("timing").textContent = "Loaded in " + Math.round(performance.now() - started) + " ms.";
   } catch (err) {
@@ -220,9 +287,100 @@ async function load() {
   }
 }
 
+/* ---------- Record a payment ---------- */
+
+function setPayMessage(text, isError) {
+  const box = $("pay-message");
+  box.textContent = text;
+  box.className = "msg " + (isError ? "bad" : "good");
+}
+
+function errorText(data) {
+  if (!data) return "Request failed.";
+  if (typeof data === "string") return data;
+  const parts = [];
+  for (const [key, value] of Object.entries(data)) {
+    const text = Array.isArray(value) ? value.join(" ") : String(value);
+    parts.push(key === "detail" ? text : key + ": " + text);
+  }
+  return parts.join(" ");
+}
+
+function fillAmount() {
+  const inv = payable.find(i => String(i.id) === $("pay-invoice").value);
+  $("pay-amount").value = inv ? Number(inv.outstanding).toFixed(2) : "";
+}
+
+async function loadPayable() {
+  const term = $("pay-search").value.trim();
+  const data = await getJSON("/api/invoices/payable/" + (term ? "?search=" + encodeURIComponent(term) : ""));
+  payable = data.results;
+  const select = $("pay-invoice");
+  select.replaceChildren();
+  if (!payable.length) {
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "No payable invoices found";
+    select.append(none);
+    $("pay-amount").value = "";
+    return;
+  }
+  payable.forEach(inv => {
+    const opt = document.createElement("option");
+    opt.value = inv.id;
+    opt.textContent = inv.invoice_number + " - owes " + money(inv.outstanding) + " (due " + inv.due_date + ")";
+    select.append(opt);
+  });
+  fillAmount();
+}
+
+async function submitPayment(event) {
+  event.preventDefault();
+  const invoice = $("pay-invoice").value;
+  if (!invoice) { setPayMessage("Choose an invoice first.", true); return; }
+  const token = document.querySelector("[name=csrfmiddlewaretoken]").value;
+  const body = {
+    invoice: Number(invoice),
+    amount: $("pay-amount").value,
+    payment_method: $("pay-method").value,
+    transaction_reference: $("pay-ref").value,
+    notes: $("pay-notes").value,
+  };
+  $("pay-submit").disabled = true;
+  setPayMessage("Saving...", false);
+  try {
+    const res = await fetch("/api/payments/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRFToken": token },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      setPayMessage(errorText(data), true);
+      return;
+    }
+    setPayMessage("Recorded " + data.payment_number + " for " + money(data.amount) + " on " + data.invoice_number + ".", false);
+    $("pay-ref").value = "";
+    $("pay-notes").value = "";
+    await Promise.all([loadPayable(), load()]);
+  } catch (err) {
+    setPayMessage("Could not reach the server.", true);
+  } finally {
+    $("pay-submit").disabled = false;
+  }
+}
+
 $("filters").addEventListener("submit", e => { e.preventDefault(); load(); });
 $("reset").addEventListener("click", () => { $("filters").reset(); load(); });
+$("pay-form").addEventListener("submit", submitPayment);
+$("pay-invoice").addEventListener("change", fillAmount);
+$("pay-search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadPayable().catch(err => showError(err.message)), 250);
+});
+
 load();
+loadPayable().catch(err => showError(err.message));
 </script>
 </body>
 </html>
