@@ -89,3 +89,47 @@ class SubscriptionRenewForm(forms.Form):
         min_value=1,
         widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "e.g. 30, 365"}),
     )
+
+
+class CheckoutLineForm(IgnoreBlankLineMixin, forms.ModelForm):
+    class Meta:
+        model = SubscriptionLine
+        fields = ["product", "variant", "quantity"]
+        widgets = {
+            "product": forms.Select(attrs={"class": "form-select product-select"}),
+            "variant": forms.Select(attrs={"class": "form-select variant-select"}),
+            "quantity": forms.NumberInput(attrs={"class": "form-control quantity-input", "min": 1}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["product"].queryset = Product.objects.filter(is_active=True).select_related("tax").order_by("name")
+        self.fields["product"].widget.choices = [("", "Choose a product")] + [
+            (p.pk, f"{p.name} - {p.sales_price}") for p in self.fields["product"].queryset
+        ]
+        self.fields["variant"].queryset = ProductVariant.objects.select_related("product").order_by("product__name")
+        self.fields["variant"].widget.choices = [("", "No variant")] + [
+            (v.pk, f"{v.attribute_name}: {v.attribute_value} (+{v.price_extra})") for v in self.fields["variant"].queryset
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        product, variant = cleaned.get("product"), cleaned.get("variant")
+        if product and variant and variant.product_id != product.pk:
+            self.add_error("variant", "This variant does not belong to the selected product.")
+        if product:
+            self.instance.tax_rate = product.tax_rate
+        return cleaned
+
+
+class BaseCheckoutFormSet(forms.BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        live = [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+        if not live:
+            raise forms.ValidationError("Add at least one product to subscribe.")
+
+
+CheckoutLineFormSet = inlineformset_factory(
+    Subscription, SubscriptionLine, form=CheckoutLineForm, formset=BaseCheckoutFormSet, extra=1, can_delete=True
+)

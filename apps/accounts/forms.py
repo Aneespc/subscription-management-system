@@ -10,12 +10,12 @@ SELECT = {"class": "form-select"}
 class LoginForm(AuthenticationForm):
     username = forms.CharField(
         label="Email",
-        widget=forms.EmailInput({**TEXT, "autofocus": True, "placeholder": "you@company.com"}),
+        widget=forms.TextInput({**TEXT, "autofocus": True, "placeholder": "you@company.com", "autocomplete": "username"}),
     )
     password = forms.CharField(label="Password", strip=False, widget=forms.PasswordInput(TEXT))
 
     def clean_username(self):
-        return self.cleaned_data["username"].lower()
+        return self.cleaned_data["username"].strip()
 
 
 class RegisterForm(UserCreationForm):

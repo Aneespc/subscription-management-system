@@ -37,7 +37,8 @@
   {% else %}
     <div class="sidebar-section">My Account</div>
     <ul class="sidebar-nav">
-      <li><a class="{% if '/subscriptions/' in path %}active{% endif %}" href="{% url 'subscriptions:list' %}"><i class="bi bi-card-checklist"></i>My Subscriptions</a></li>
+      <li><a class="{% if '/subscriptions/' in path and '/subscriptions/plans' not in path %}active{% endif %}" href="{% url 'subscriptions:list' %}"><i class="bi bi-card-checklist"></i>My Subscriptions</a></li>
+      <li><a class="{% if '/subscriptions/plans' in path %}active{% endif %}" href="{% url 'subscriptions:plans' %}"><i class="bi bi-collection"></i>Plans</a></li>
       <li><a class="{% if '/invoicing/' in path %}active{% endif %}" href="{% url 'invoicing:invoice_list' %}"><i class="bi bi-receipt"></i>My Invoices</a></li>
       <li><a class="{% if '/accounts/profile/' in path %}active{% endif %}" href="{% url 'accounts:profile' %}"><i class="bi bi-person"></i>Profile</a></li>
     </ul>

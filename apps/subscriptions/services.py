@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -59,8 +61,6 @@ class SubscriptionService:
         today = timezone.localdate()
         base = subscription.expiry_date if subscription.expiry_date and subscription.expiry_date > today else today
         if additional_days:
-            from datetime import timedelta
-
             subscription.expiry_date = base + timedelta(days=additional_days)
         else:
             subscription.expiry_date = base + subscription.plan.interval_delta()
@@ -81,6 +81,26 @@ class SubscriptionService:
         subscription.status = Subscription.Status.CLOSED
         subscription.save(update_fields=["status", "updated_at"])
         return subscription
+
+    def subscribe(self, customer, plan, formset, payment_terms=Subscription.PaymentTerms.NET_30):
+        from apps.invoicing.services import InvoiceService
+
+        today = timezone.localdate()
+        with transaction.atomic():
+            subscription = Subscription.objects.create(
+                customer=customer, plan=plan, start_date=today, payment_terms=payment_terms,
+                status=Subscription.Status.CONFIRMED,
+            )
+            formset.instance = subscription
+            formset.save()
+            subscription.next_billing_date = today
+            self.activate(subscription)
+            period_end = today + plan.interval_delta() - timedelta(days=1)
+            invoice = InvoiceService.generate_for_subscription(subscription, today, period_end)
+            InvoiceService.confirm(invoice)
+            subscription.next_billing_date = period_end + timedelta(days=1)
+            subscription.save(update_fields=["next_billing_date", "updated_at"])
+        return subscription, invoice
 
     def check_and_auto_close_expired(self, current_date=None):
         current_date = current_date or timezone.localdate()

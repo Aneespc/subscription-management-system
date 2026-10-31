@@ -10,7 +10,7 @@ from django.contrib.auth.views import (
     PasswordResetView,
 )
 from django.shortcuts import redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
@@ -19,19 +19,27 @@ from .mixins import AdminRequiredMixin
 from .models import CustomerProfile, User
 
 
+def customer_landing(user):
+    from apps.subscriptions.models import Subscription
+
+    if Subscription.objects.filter(customer__user=user).exists():
+        return "subscriptions:list"
+    return "subscriptions:plans"
+
+
 class HomeView(View):
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("accounts:login")
         if request.user.is_staff_role:
             return redirect("dashboard:index")
-        return redirect("subscriptions:list")
+        return redirect(customer_landing(request.user))
 
 
 class RegisterView(CreateView):
     form_class = RegisterForm
     template_name = "accounts/register.html"
-    success_url = reverse_lazy("subscriptions:list")
+    success_url = reverse_lazy("subscriptions:plans")
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -49,6 +57,9 @@ class UserLoginView(LoginView):
     template_name = "accounts/login.html"
     authentication_form = LoginForm
     redirect_authenticated_user = True
+
+    def get_default_redirect_url(self):
+        return reverse("home")
 
 
 class UserLogoutView(LogoutView):

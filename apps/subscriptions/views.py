@@ -15,7 +15,7 @@ from apps.accounts.models import CustomerProfile
 from apps.plans.models import Plan
 from apps.products.models import ProductVariant
 
-from .forms import SubscriptionForm, SubscriptionLineFormSet
+from .forms import CheckoutLineFormSet, SubscriptionForm, SubscriptionLineFormSet
 from .models import Subscription
 from .services import SubscriptionService
 
@@ -182,3 +182,63 @@ class SubscriptionActionView(LoginRequiredMixin, View):
             messages.error(request, str(err))
         return redirect("subscriptions:detail", pk=subscription.pk)
 
+
+
+class PlanCatalogView(LoginRequiredMixin, View):
+    template_name = "subscriptions/plan_catalog.html"
+
+    def get(self, request):
+        plans = [p for p in Plan.objects.filter(is_active=True).order_by("price") if p.is_available]
+        featured = max(plans, key=lambda p: p.price, default=None)
+        return render(request, self.template_name, {"plans": plans, "featured": featured, "is_staff_user": is_staff_user(request.user)})
+
+
+class SubscribeView(LoginRequiredMixin, View):
+    template_name = "subscriptions/subscribe.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and is_staff_user(request.user):
+            return redirect("subscriptions:create")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_plan(self, pk):
+        plan = get_object_or_404(Plan, pk=pk, is_active=True)
+        if not plan.is_available:
+            raise PermissionDenied("This plan is not available right now.")
+        return plan
+
+    def render_form(self, request, plan, formset):
+        return render(
+            request,
+            self.template_name,
+            {
+                "plan": plan,
+                "formset": formset,
+                "variant_map": {str(v["id"]): str(v["product_id"]) for v in ProductVariant.objects.values("id", "product_id")},
+                "terms": Subscription.PaymentTerms.choices,
+            },
+        )
+
+    def get(self, request, pk):
+        return self.render_form(request, self.get_plan(pk), CheckoutLineFormSet())
+
+    def post(self, request, pk):
+        plan = self.get_plan(pk)
+        formset = CheckoutLineFormSet(request.POST)
+        if formset.is_valid():
+            quantity = sum(f.cleaned_data["quantity"] for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE"))
+            if quantity < plan.minimum_quantity:
+                messages.error(request, f"{plan.name} needs at least {plan.minimum_quantity} unit(s). You selected {quantity}.")
+                return self.render_form(request, plan, formset)
+            customer, _ = CustomerProfile.objects.get_or_create(user=request.user, defaults={"company_name": request.user.email})
+            terms = request.POST.get("payment_terms", Subscription.PaymentTerms.NET_30)
+            if terms not in Subscription.PaymentTerms.values:
+                terms = Subscription.PaymentTerms.NET_30
+            try:
+                subscription, invoice = SubscriptionService().subscribe(customer, plan, formset, payment_terms=terms)
+            except ValueError as err:
+                messages.error(request, str(err))
+                return self.render_form(request, plan, formset)
+            messages.success(request, f"You are subscribed to {plan.name}. Your first invoice {invoice.invoice_number} is ready.")
+            return redirect("invoicing:invoice_detail", pk=invoice.pk)
+        return self.render_form(request, plan, formset)

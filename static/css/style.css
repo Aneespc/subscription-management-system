@@ -292,3 +292,22 @@ small, .small { font-size: 13px; letter-spacing: -0.39px; }
   body { background: #fff; }
   .card { box-shadow: none; }
 }
+
+.display-xl { font-size: 48px; font-weight: 300; line-height: 1.15; letter-spacing: -0.96px; }
+.pill-tag { display: inline-block; background: var(--primary-subdued); color: var(--primary-deep); font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; padding: 4px 8px; border-radius: var(--radius-pill); line-height: 1.15; }
+.pill-tag.on-dark { background: rgba(255, 255, 255, 0.16); color: #fff; margin-bottom: 12px; }
+.card-pricing { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 32px; height: 100%; display: flex; flex-direction: column; box-shadow: var(--shadow-1); }
+.card-pricing .tier { font-size: 22px; font-weight: 300; letter-spacing: -0.22px; line-height: 1.1; margin: 0 0 12px; }
+.card-pricing .price { font-size: 26px; font-weight: 300; letter-spacing: -0.26px; line-height: 1.12; margin-bottom: 4px; }
+.card-pricing .price small { font-size: 13px; letter-spacing: -0.39px; color: var(--ink-mute); }
+.card-pricing .minimum { font-size: 13px; letter-spacing: -0.39px; color: var(--ink-mute); margin-bottom: 20px; }
+.card-pricing .policy { list-style: none; padding: 0; margin: 0 0 28px; display: grid; gap: 10px; flex: 1; }
+.card-pricing .policy li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.card-pricing .policy i { color: var(--primary); margin-top: 2px; }
+.card-pricing.featured { background: var(--brand-dark); color: #fff; border-color: var(--brand-dark); box-shadow: var(--shadow-2); }
+.card-pricing.featured .tier, .card-pricing.featured .price { color: #fff; }
+.card-pricing.featured .price small, .card-pricing.featured .minimum { color: rgba(255, 255, 255, 0.6); }
+.card-pricing.featured .policy i { color: var(--primary-subdued); }
+.btn-on-dark-invert { background: #fff; border-color: #fff; color: var(--brand-dark); }
+.btn-on-dark-invert:hover { background: var(--primary-subdued); border-color: var(--primary-subdued); color: var(--brand-dark); }
+@media (max-width: 767.98px) { .display-xl { font-size: 32px; letter-spacing: -0.64px; } }

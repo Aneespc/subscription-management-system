@@ -13,6 +13,8 @@
       <a href="{% url 'quotations:from_template' %}" class="btn btn-outline-primary"><i class="bi bi-magic me-1"></i>Quote from template</a>
       <a href="{% url 'subscriptions:create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New subscription</a>
     </div>
+  {% else %}
+    <a href="{% url 'subscriptions:plans' %}" class="btn btn-primary"><i class="bi bi-collection me-1"></i>Browse plans</a>
   {% endif %}
 </div>
 
@@ -60,7 +62,7 @@
           <td class="text-end"><div class="btn-group btn-group-sm"><a href="{% url 'subscriptions:detail' sub.pk %}" class="btn btn-light" title="View"><i class="bi bi-eye"></i></a>{% if is_staff_user %}<a href="{% url 'subscriptions:edit' sub.pk %}" class="btn btn-light" title="Edit"><i class="bi bi-pencil"></i></a>{% endif %}</div></td>
         </tr>
       {% empty %}
-        <tr><td colspan="9"><div class="empty-state"><i class="bi bi-card-checklist"></i>No subscriptions match these filters.</div></td></tr>
+        <tr><td colspan="9"><div class="empty-state"><i class="bi bi-card-checklist"></i>No subscriptions yet.{% if not is_staff_user %} <a href="{% url 'subscriptions:plans' %}">Browse plans</a> to start one.{% endif %}</div></td></tr>
       {% endfor %}
     </tbody>
   </table>

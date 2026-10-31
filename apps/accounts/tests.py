@@ -25,7 +25,7 @@ class RegistrationTests(TestCase):
 
     def test_register_creates_customer_and_profile(self):
         response = self.client.post(reverse("accounts:register"), self.payload())
-        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("subscriptions:plans"))
         user = User.objects.get(email="owner@shop.com")
         self.assertEqual(user.role, User.Role.CUSTOMER)
         self.assertTrue(CustomerProfile.objects.filter(user=user).exists())
@@ -47,6 +47,12 @@ class RegistrationTests(TestCase):
         self.client.logout()
         response = self.client.post(reverse("accounts:login"), {"username": "Owner@Shop.com", "password": "Str0ng!Pass"})
         self.assertEqual(response.status_code, 302)
+
+    def test_superuser_created_with_plain_username_can_login_by_email(self):
+        User.objects.create_superuser(username="boss", email="Boss@Example.com", password="Str0ng!Pass")
+        response = self.client.post(reverse("accounts:login"), {"username": "boss@example.com", "password": "Str0ng!Pass"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(User.objects.get(username="boss").role, User.Role.ADMIN)
 
     def test_password_reset_sends_link(self):
         from django.core import mail
@@ -76,7 +82,12 @@ class RoleAccessTests(TestCase):
         self.assertEqual(User.objects.get(email="new@x.com").role, "STAFF")
 
     def test_home_routes_by_role(self):
+        from apps.plans.models import Plan
+        from apps.subscriptions.models import Subscription
+
         self.client.force_login(self.customer)
+        self.assertRedirects(self.client.get(reverse("home")), reverse("subscriptions:plans"))
+        Subscription.objects.create(customer=self.customer.customer_profile, plan=Plan.objects.create(name="P"))
         self.assertRedirects(self.client.get(reverse("home")), reverse("subscriptions:list"))
         self.client.force_login(self.staff)
         self.assertRedirects(self.client.get(reverse("home")), reverse("dashboard:index"))

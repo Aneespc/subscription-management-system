@@ -94,6 +94,36 @@ class SubscriptionTests(TestCase):
         other_sub = Subscription.objects.create(customer=other, plan=self.plan)
         self.assertEqual(self.client.get(reverse("subscriptions:detail", args=[other_sub.pk])).status_code, 404)
 
+    def test_customer_subscribes_from_catalog(self):
+        from apps.invoicing.models import Invoice
+
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse("subscriptions:plans")).status_code, 200)
+        response = self.client.post(
+            reverse("subscriptions:subscribe", args=[self.plan.pk]),
+            {
+                "lines-TOTAL_FORMS": "1", "lines-INITIAL_FORMS": "0", "lines-MIN_NUM_FORMS": "0", "lines-MAX_NUM_FORMS": "1000",
+                "lines-0-product": self.product.pk, "lines-0-variant": "", "lines-0-quantity": "1", "payment_terms": "NET_15",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Subscription.objects.filter(customer=self.customer).exists())
+        response = self.client.post(
+            reverse("subscriptions:subscribe", args=[self.plan.pk]),
+            {
+                "lines-TOTAL_FORMS": "1", "lines-INITIAL_FORMS": "0", "lines-MIN_NUM_FORMS": "0", "lines-MAX_NUM_FORMS": "1000",
+                "lines-0-product": self.product.pk, "lines-0-variant": "", "lines-0-quantity": "3", "payment_terms": "NET_15",
+            },
+        )
+        sub = Subscription.objects.get(customer=self.customer)
+        invoice = Invoice.objects.get(subscription=sub)
+        self.assertRedirects(response, reverse("invoicing:invoice_detail", args=[invoice.pk]))
+        self.assertEqual(sub.status, Subscription.Status.ACTIVE)
+        self.assertEqual(sub.total_amount, Decimal("300.00"))
+        self.assertEqual(invoice.status, Invoice.Status.CONFIRMED)
+        self.assertEqual(invoice.subtotal, Decimal("300.00"))
+        self.assertEqual(sub.next_billing_date, invoice.billing_period_end + timedelta(days=1))
+
     def test_renew(self):
         sub = Subscription.objects.create(
             customer=self.customer,

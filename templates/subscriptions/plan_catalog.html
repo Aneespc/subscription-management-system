@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Plans{% endblock %}
+{% block header_title %}Plans{% endblock %}
+{% block content %}
+<div class="text-center mb-5 pt-3">
+  <span class="pill-tag">Flexible recurring plans</span>
+  <h1 class="display-xl mt-3">Pick a plan and start today.</h1>
+  <p class="text-muted mx-auto" style="max-width:560px;">Choose the plan, add the products you need, and your first invoice is ready the moment you subscribe.</p>
+</div>
+<div class="row g-4 justify-content-center">
+  {% for plan in plans %}
+    <div class="col-md-6 col-xl-3">
+      <div class="card-pricing {% if plan == featured %}featured{% endif %}">
+        {% if plan == featured %}<span class="pill-tag on-dark">Most complete</span>{% endif %}
+        <h3 class="tier">{{ plan.name }}</h3>
+        <div class="price">${{ plan.price|floatformat:2|intcomma }}<small> / {{ plan.get_billing_interval_display|lower }}</small></div>
+        <div class="minimum">Minimum {{ plan.minimum_quantity }} unit{{ plan.minimum_quantity|pluralize }}</div>
+        <ul class="policy">
+          <li><i class="bi bi-calendar3"></i>Billed {{ plan.get_billing_interval_display|lower }}</li>
+          <li><i class="bi {% if plan.allow_pause %}bi-check2-circle{% else %}bi-x-circle{% endif %}"></i>{% if plan.allow_pause %}Pause any time{% else %}Cannot be paused{% endif %}</li>
+          <li><i class="bi {% if plan.allow_renewal %}bi-check2-circle{% else %}bi-x-circle{% endif %}"></i>{% if plan.allow_renewal %}Renewable{% else %}Not renewable{% endif %}</li>
+          <li><i class="bi {% if plan.allow_early_close %}bi-check2-circle{% else %}bi-x-circle{% endif %}"></i>{% if plan.allow_early_close %}Close early if needed{% else %}Fixed term{% endif %}</li>
+          <li><i class="bi {% if plan.auto_close %}bi-clock-history{% else %}bi-arrow-repeat{% endif %}"></i>{% if plan.auto_close %}Ends automatically{% else %}Runs until you close it{% endif %}</li>
+          {% if plan.available_until %}<li><i class="bi bi-hourglass-split"></i>Available until {{ plan.available_until|date:"M d, Y" }}</li>{% endif %}
+        </ul>
+        {% if is_staff_user %}
+          <a href="{% url 'subscriptions:create' %}" class="btn {% if plan == featured %}btn-on-dark-invert{% else %}btn-primary{% endif %} w-100">Create for a customer</a>
+        {% else %}
+          <a href="{% url 'subscriptions:subscribe' plan.pk %}" class="btn {% if plan == featured %}btn-on-dark-invert{% else %}btn-primary{% endif %} w-100">Subscribe</a>
+        {% endif %}
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-12"><div class="card"><div class="empty-state"><i class="bi bi-collection"></i>No plans are available right now.</div></div></div>
+  {% endfor %}
+</div>
+{% endblock %}

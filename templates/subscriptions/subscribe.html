@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Subscribe to {{ plan.name }}{% endblock %}
+{% block header_title %}Subscribe{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{% url 'subscriptions:plans' %}" class="small text-muted"><i class="bi bi-arrow-left me-1"></i>All plans</a>
+    <h1 class="mt-1">Subscribe to {{ plan.name }}</h1>
+    <p>Add the products you want on this plan. Your first invoice is created as soon as you subscribe.</p>
+  </div>
+</div>
+{{ variant_map|json_script:"variant-map" }}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">Products <button type="button" class="btn btn-sm btn-light" id="add-row"><i class="bi bi-plus-lg me-1"></i>Add product</button></div>
+        <div class="card-body p-0">
+          {{ formset.management_form }}
+          {% if formset.non_form_errors %}<div class="alert alert-danger m-3">{{ formset.non_form_errors.0 }}</div>{% endif %}
+          <div class="table-responsive">
+            <table class="table table-form">
+              <thead><tr><th style="width:44%">Product</th><th style="width:36%">Variant</th><th style="width:14%">Quantity</th><th></th></tr></thead>
+              <tbody id="formset-rows">
+                {% for line in formset %}
+                  <tr class="formset-row {% if line.DELETE.value %}d-none{% endif %}">
+                    <td>{{ line.id }}{{ line.product }}{% if line.product.errors %}<div class="text-danger small">{{ line.product.errors.0 }}</div>{% endif %}</td>
+                    <td>{{ line.variant }}{% if line.variant.errors %}<div class="text-danger small">{{ line.variant.errors.0 }}</div>{% endif %}</td>
+                    <td>{{ line.quantity }}{% if line.quantity.errors %}<div class="text-danger small">{{ line.quantity.errors.0 }}</div>{% endif %}</td>
+                    <td class="text-end"><div class="d-none">{{ line.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row"><i class="bi bi-trash"></i></button></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="px-3 pb-3 small text-muted">Prices come from the product and variant you choose. Tax is applied automatically.</div>
+          <template id="empty-row-template">
+            <tr class="formset-row">
+              <td>{{ formset.empty_form.id }}{{ formset.empty_form.product }}</td>
+              <td>{{ formset.empty_form.variant }}</td>
+              <td>{{ formset.empty_form.quantity }}</td>
+              <td class="text-end"><div class="d-none">{{ formset.empty_form.DELETE }}</div><button type="button" class="btn btn-sm btn-light remove-row"><i class="bi bi-trash"></i></button></td>
+            </tr>
+          </template>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header">Your plan</div>
+        <div class="card-body">
+          <div class="eyebrow mb-1">Plan</div>
+          <div class="h3 mb-2">{{ plan.name }}</div>
+          <div class="price mb-3" style="font-size:26px;letter-spacing:-0.26px;">${{ plan.price|floatformat:2|intcomma }} <small class="text-muted" style="font-size:13px;">/ {{ plan.get_billing_interval_display|lower }}</small></div>
+          <div class="detail-list mb-3">
+            <div class="row-item"><span>Billing</span><span>{{ plan.get_billing_interval_display }}</span></div>
+            <div class="row-item"><span>Minimum quantity</span><span>{{ plan.minimum_quantity }}</span></div>
+            <div class="row-item"><span>Starts</span><span>Today</span></div>
+          </div>
+          <label class="form-label">Payment terms</label>
+          <select name="payment_terms" class="form-select mb-4">{% for value, label in terms %}<option value="{{ value }}" {% if value == 'NET_30' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+          <button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-check2-circle me-1"></i>Subscribe now</button>
+          <div class="small text-muted mt-3">You can pause, renew or close this subscription later within the plan's rules.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
