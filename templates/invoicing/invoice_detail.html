@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Invoice {{ invoice.invoice_number }} | Brightloop Billing{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <a href="{% url 'invoicing:invoice_list' %}" class="text-decoration-none text-muted small">
+      <i class="bi bi-arrow-left me-1"></i>Back to Invoices
+    </a>
+    <h1 class="h3 fw-bold mt-1 mb-0 font-monospace">{{ invoice.invoice_number }}</h1>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'invoicing:invoice_print' invoice.pk %}" class="btn btn-outline-dark" target="_blank">
+      <i class="bi bi-printer me-1"></i>Print View
+    </a>
+    <a href="{% url 'invoicing:invoice_pdf' invoice.pk %}" class="btn btn-outline-primary" target="_blank">
+      <i class="bi bi-file-earmark-pdf me-1"></i>PDF Export
+    </a>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Invoice Summary & Status Card -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+          <div>
+            <h5 class="card-title fw-bold text-primary mb-1">Brightloop Software Inc.</h5>
+            <span class="text-muted small">Recurring Subscription Invoice</span>
+          </div>
+          <div>
+            {% if invoice.status == 'DRAFT' %}
+              <span class="badge badge-status-draft fs-6 px-3 py-2">Draft</span>
+            {% elif invoice.status == 'CONFIRMED' %}
+              <span class="badge badge-status-confirmed fs-6 px-3 py-2">Confirmed</span>
+            {% elif invoice.status == 'PAID' %}
+              <span class="badge badge-status-paid fs-6 px-3 py-2"><i class="bi bi-check-circle me-1"></i>Paid</span>
+            {% elif invoice.status == 'CANCELLED' %}
+              <span class="badge badge-status-cancelled fs-6 px-3 py-2">Cancelled</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6">
+            <h6 class="text-uppercase text-muted fw-bold small">Billed To</h6>
+            <p class="mb-1 fw-bold">{{ invoice.customer.company_name|default:invoice.customer.user.username }}</p>
+            <p class="mb-1 text-muted small">{{ invoice.customer.billing_address|linebreaksbr|default:"No address specified" }}</p>
+            <p class="mb-0 text-muted small">
+              <i class="bi bi-envelope me-1"></i>{{ invoice.customer.billing_email|default:invoice.customer.user.email }}
+            </p>
+            {% if invoice.customer.tax_id %}
+              <p class="mb-0 text-muted small">Tax ID: {{ invoice.customer.tax_id }}</p>
+            {% endif %}
+          </div>
+          <div class="col-sm-6 text-sm-end">
+            <h6 class="text-uppercase text-muted fw-bold small">Invoice Details</h6>
+            <p class="mb-1 small"><strong class="text-muted">Issue Date:</strong> {{ invoice.issue_date|date:"F d, Y" }}</p>
+            <p class="mb-1 small">
+              <strong class="text-muted">Due Date:</strong> {{ invoice.due_date|date:"F d, Y" }}
+              {% if invoice.is_overdue %}
+                <span class="badge bg-danger ms-1">Overdue</span>
+              {% endif %}
+            </p>
+            <p class="mb-1 small">
+              <strong class="text-muted">Billing Period:</strong>
+              {{ invoice.billing_period_start|date:"M d, Y" }} &ndash; {{ invoice.billing_period_end|date:"M d, Y" }}
+            </p>
+            {% if invoice.subscription %}
+              <p class="mb-0 small">
+                <strong class="text-muted">Subscription:</strong>
+                {{ invoice.subscription.subscription_number }} ({{ invoice.subscription.plan.name }})
+              </p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions Card for Staff / Admins -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white border-bottom fw-bold py-3">
+        <i class="bi bi-gear me-1"></i>Invoice Actions
+      </div>
+      <div class="card-body">
+        {% if can_manage %}
+          <div class="d-grid gap-2">
+            {% if invoice.can_confirm %}
+              <form method="post" action="{% url 'invoicing:invoice_confirm' invoice.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary w-100">
+                  <i class="bi bi-check-lg me-1"></i>Confirm Invoice
+                </button>
+              </form>
+            {% endif %}
+
+            {% if invoice.can_cancel %}
+              <form method="post" action="{% url 'invoicing:invoice_cancel' invoice.pk %}" onsubmit="return confirm('Are you sure you want to cancel this invoice?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger w-100">
+                  <i class="bi bi-x-circle me-1"></i>Cancel Invoice
+                </button>
+              </form>
+            {% endif %}
+
+            <form method="post" action="{% url 'invoicing:invoice_send' invoice.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-send me-1"></i>Send Email with PDF
+              </button>
+            </form>
+
+            {% if invoice.is_paid %}
+              <div class="alert alert-success mt-2 mb-0 py-2 small text-center">
+                <i class="bi bi-shield-check me-1"></i>This invoice is Paid and cannot be modified.
+              </div>
+            {% elif invoice.is_cancelled %}
+              <div class="alert alert-danger mt-2 mb-0 py-2 small text-center">
+                <i class="bi bi-ban me-1"></i>This invoice is Cancelled.
+              </div>
+            {% endif %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">
+            For billing inquiries or payment updates, please contact billing support at <code>billing@brightloopsoftware.com</code>.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Line Items Table -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white border-bottom fw-bold py-3">
+    <i class="bi bi-list-check me-1"></i>Line Items Snapshot
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Description</th>
+          <th class="text-center" style="width: 80px;">Qty</th>
+          <th class="text-end" style="width: 140px;">Unit Price</th>
+          <th class="text-center" style="width: 120px;">Tax Rate</th>
+          <th class="text-end" style="width: 140px;">Discount</th>
+          <th class="text-end" style="width: 150px;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in invoice.lines.all %}
+          <tr>
+            <td>
+              <span class="fw-semibold">{{ line.description }}</span>
+              {% if line.product.sku %}
+                <span class="text-muted font-monospace small d-block">SKU: {{ line.product.sku }}</span>
+              {% endif %}
+            </td>
+            <td class="text-center">{{ line.quantity }}</td>
+            <td class="text-end">${{ line.unit_price }}</td>
+            <td class="text-center">
+              <span class="badge bg-light text-dark border">{{ line.tax_rate }}%</span>
+            </td>
+            <td class="text-end text-success">
+              {% if line.discount_amount > 0 %}-${{ line.discount_amount }}{% else %}&mdash;{% endif %}
+            </td>
+            <td class="text-end fw-bold">${{ line.amount }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">No line items recorded on this invoice.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Breakdown row: Tax breakdown, Discounts & Totals -->
+<div class="row g-4">
+  <div class="col-lg-6">
+    <!-- Tax Lines Breakdown -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-bottom fw-bold py-3">
+        <i class="bi bi-pie-chart me-1"></i>Tax Summary Breakdown
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Tax Name</th>
+              <th class="text-center">Rate</th>
+              <th class="text-end">Taxable Amount</th>
+              <th class="text-end">Tax Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tl in invoice.tax_lines.all %}
+              <tr>
+                <td class="fw-semibold">{{ tl.tax_name }}</td>
+                <td class="text-center">{{ tl.tax_rate }}%</td>
+                <td class="text-end">${{ tl.taxable_amount }}</td>
+                <td class="text-end fw-bold">${{ tl.tax_amount }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="text-center py-3 text-muted small">No taxes applied to this invoice.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Discount Usages -->
+    {% if invoice.discount_usages.exists %}
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom fw-bold py-3">
+          <i class="bi bi-tag me-1"></i>Applied Discounts
+        </div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for usage in invoice.discount_usages.all %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <span class="fw-bold">{{ usage.discount.name }}</span>
+                  <span class="badge bg-light text-dark border ms-2">
+                    {{ usage.discount.get_discount_type_display }}: {{ usage.discount.value }}{% if usage.discount.discount_type == 'PERCENTAGE' %}%{% else %}${% endif %}
+                  </span>
+                </div>
+                <span class="text-success fw-bold">-${{ usage.discount_amount }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Financial Totals Box -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm bg-white">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3 border-bottom pb-2">Total Summary</h5>
+        <div class="d-flex justify-content-between py-2 border-bottom">
+          <span class="text-muted">Subtotal:</span>
+          <span class="fw-semibold">${{ invoice.subtotal }}</span>
+        </div>
+        <div class="d-flex justify-content-between py-2 border-bottom text-success">
+          <span>Total Discount:</span>
+          <span class="fw-semibold">-${{ invoice.discount_amount }}</span>
+        </div>
+        <div class="d-flex justify-content-between py-2 border-bottom">
+          <span class="text-muted">Total Tax:</span>
+          <span class="fw-semibold">+${{ invoice.tax_amount }}</span>
+        </div>
+        <div class="d-flex justify-content-between py-3 fs-5">
+          <span class="fw-bold">Total Amount Due:</span>
+          <span class="fw-bold text-primary">${{ invoice.total_amount }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
