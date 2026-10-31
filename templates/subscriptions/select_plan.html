@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Subscription Plans Catalog - Brightloop Software{% endblock %}
+
+{% block content %}
+<div class="text-center mb-5">
+  <span class="badge bg-primary-subtle text-primary border px-3 py-1 rounded-pill mb-2">Flexible Recurring Tiers</span>
+  <h2 class="display-6 fw-bold">Brightloop Subscription Plans</h2>
+  <p class="text-muted col-lg-6 mx-auto">
+    Choose the right recurring software plan for your business. From single-seat starter shops to enterprise fleets with annual contracts.
+  </p>
+</div>
+
+<div class="row g-4 justify-content-center mb-5">
+  {% for plan in plans %}
+    <div class="col-md-6 col-lg-3">
+      <div class="card h-100 border-0 shadow-sm position-relative">
+        {% if plan.billing_interval == 'YEARLY' %}
+          <div class="position-absolute top-0 end-0 mt-3 me-3">
+            <span class="badge bg-success">Best Value</span>
+          </div>
+        {% endif %}
+        <div class="card-body p-4 d-flex flex-column justify-content-between">
+          <div>
+            <h4 class="card-title fw-bold mb-2">{{ plan.name }}</h4>
+            <div class="mb-3">
+              <span class="fs-2 fw-bold text-dark">${{ plan.price }}</span>
+              <span class="text-muted">/ {{ plan.get_billing_interval_display|lower }}</span>
+            </div>
+            
+            <div class="p-2 bg-light rounded mb-3 small">
+              <i class="bi bi-people me-1 text-primary"></i> Minimum <strong>{{ plan.minimum_quantity }} seat(s)</strong> required
+            </div>
+
+            <h6 class="text-muted small text-uppercase fw-semibold mb-2">Policy Highlights:</h6>
+            <ul class="list-unstyled small mb-4">
+              <li class="mb-2">
+                <i class="bi bi-calendar3 text-primary me-2"></i> Billed <strong>{{ plan.get_billing_interval_display }}</strong>
+              </li>
+              <li class="mb-2">
+                {% if plan.allow_pause %}
+                  <i class="bi bi-check-circle-fill text-success me-2"></i> Can be paused anytime
+                {% else %}
+                  <i class="bi bi-x-circle text-muted me-2"></i> Cannot be paused
+                {% endif %}
+              </li>
+              <li class="mb-2">
+                {% if plan.allow_renewal %}
+                  <i class="bi bi-check-circle-fill text-success me-2"></i> Auto-renewable contract
+                {% else %}
+                  <i class="bi bi-x-circle text-muted me-2"></i> Non-renewable
+                {% endif %}
+              </li>
+              <li class="mb-2">
+                {% if plan.allow_early_close %}
+                  <i class="bi bi-check-circle-fill text-success me-2"></i> Early closure permitted
+                {% else %}
+                  <i class="bi bi-x-circle text-muted me-2"></i> Fixed duration (no early exit)
+                {% endif %}
+              </li>
+              <li class="mb-2">
+                {% if plan.auto_close %}
+                  <i class="bi bi-clock-history text-warning me-2"></i> Auto-closes at term end
+                {% else %}
+                  <i class="bi bi-arrow-repeat text-info me-2"></i> Ongoing recurring cycle
+                {% endif %}
+              </li>
+            </ul>
+          </div>
+
+          <div class="d-grid gap-2 mt-3">
+            <a href="{% url 'quotations:create' %}" class="btn btn-outline-primary">
+              <i class="bi bi-file-earmark-plus me-1"></i> Draft Quotation
+            </a>
+            <a href="{% url 'subscriptions:create' %}" class="btn btn-primary">
+              <i class="bi bi-check2-circle me-1"></i> Start Subscription
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-12 text-center py-5 text-muted">
+      No active plans found. Please configure plans in Django Admin.
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
