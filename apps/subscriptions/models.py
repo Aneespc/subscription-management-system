@@ -1,6 +1,9 @@
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+# TEMP STUB: Owned by Member 2 (subscriptions) - Minimal stub for Member 3 feature branch
+from decimal import Decimal
+from django.db import models
 
 
 class Subscription(models.Model):

@@ -1,3 +1,5 @@
+# TEMP STUB: Owned by Member 2 (plans) - Minimal stub for Member 3 feature branch
+from decimal import Decimal
 from django.db import models
 
 
