@@ -1,7 +1,7 @@
-{% with path=request.path %}
+{% load static %}{% with path=request.path %}
 <aside class="sidebar">
   <a class="sidebar-brand" href="{% url 'home' %}">
-    <span class="logo"><i class="bi bi-arrow-repeat"></i></span>
+    <img class="logo" src="{% static 'img/logo.svg' %}" alt="Brightloop">
     <span>Brightloop<small>Subscriptions &amp; Billing</small></span>
   </a>
   {% if request.user.is_staff_role %}
@@ -43,14 +43,5 @@
       <li><a class="{% if '/accounts/profile/' in path %}active{% endif %}" href="{% url 'accounts:profile' %}"><i class="bi bi-person"></i>Profile</a></li>
     </ul>
   {% endif %}
-  <div class="sidebar-footer">
-    <div class="sidebar-user">
-      <div class="avatar">{{ request.user.display_name|slice:":1"|upper }}</div>
-      <div>
-        <div class="name">{{ request.user.display_name|truncatechars:22 }}</div>
-        <div class="role">{{ request.user.get_role_display }}</div>
-      </div>
-    </div>
-  </div>
 </aside>
 {% endwith %}
